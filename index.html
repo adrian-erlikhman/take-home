@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Take Home: your discharge papers, as a plan you can follow</title>
+<meta name="description" content="Paste hospital discharge instructions. Take Home turns them into a daily medicine schedule, warning signs, appointment dates and questions for your pharmacist. Every line points back to your papers.">
+<meta property="og:title" content="Take Home">
+<meta property="og:description" content="Your discharge papers, as a plan you can follow at home.">
+<meta property="og:image" content="og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231F6F63'/%3E%3Cpath d='M8 15.5 16 9l8 6.5V24H8z' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='m12.5 18.5 2.5 2.5 4.5-5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#input">Skip to the tool</a>
+<header class="top">
+  <a class="brand" href="./"><span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="30" height="30"><rect width="32" height="32" rx="8" fill="#1F6F63"/><path d="M8 15.5 16 9l8 6.5V24H8z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="m12.5 18.5 2.5 2.5 4.5-5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Take Home</a>
+  <nav><a href="#how">How it works</a><a href="https://github.com/adrian-erlikhman/take-home">GitHub</a></nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">For patients and the people caring for them</p>
+      <h1>Leave the hospital with a plan, not a pile of papers.</h1>
+      <p class="lede">Paste your discharge instructions. Take Home turns them into a daily medicine schedule, the warning signs to watch for, your appointments with real dates, and the questions to ask your pharmacist. Every line points back to your papers.</p>
+      <div class="cta">
+        <button class="btn primary" data-sample="heart">Try a heart failure stay</button>
+        <button class="btn" data-sample="surgery">Try an after-surgery visit</button>
+      </div>
+      <p class="fine">Runs in your browser. Nothing you paste leaves this page unless you turn on Claude with your own key. Take Home doesn't give medical advice: it rearranges what your care team wrote, and asks questions about it.</p>
+    </div>
+    <figure class="preview" aria-hidden="true">
+      <div class="pv-head"><span>Your day</span><span class="pv-date">Tue, Nov 10</span></div>
+      <div class="pv-row"><b>8:00 AM</b><span><i class="tick"></i>Furosemide, 1 tablet <em class="tag new">New</em></span></div>
+      <div class="pv-row"><b></b><span><i class="tick"></i>Metoprolol succinate ER, 1 tablet <em class="tag changed">Changed</em></span></div>
+      <div class="pv-row"><b>10:00 PM</b><span><i class="tick"></i>Atorvastatin, 1 tablet</span></div>
+      <div class="pv-warn"><b>Call 911</b> chest pain or pressure · short of breath at rest</div>
+      <div class="pv-appt"><b>Tue, Nov 17</b> Cardiology clinic with Dr. Patel</div>
+    </figure>
+  </section>
+
+  <section id="plan" class="plan" hidden aria-live="polite"></section>
+
+  <section id="input" class="input card">
+    <h2>Your discharge papers</h2>
+    <p class="hint">Paste the text of your discharge instructions or after-visit summary, or load the PDF. Keep the headings (like “Medications” and “Call your doctor if”). That's how Take Home finds each part.</p>
+    <textarea id="letter" rows="14" spellcheck="false" placeholder="YOUR MEDICATIONS&#10;NEW: Furosemide 40 mg tablet - Take 1 tablet by mouth once daily in the morning.&#10;…"></textarea>
+    <div class="row">
+      <button class="btn primary" id="make">Make my plan</button>
+      <label class="btn file">Load a PDF, .txt or photo<input type="file" id="file" accept=".pdf,.txt,image/jpeg,image/png,image/webp" hidden></label>
+      <label class="field inline">I wake up at <select id="wake"></select></label>
+      <label class="field inline">and go to bed at <select id="bed"></select></label>
+      <span class="status" id="status" role="status"></span>
+    </div>
+    <details class="claude">
+      <summary>Use Claude (optional, your own API key)</summary>
+      <p>Claude can type up a photo of printed papers (you check it against the paper before making a plan), and sort the lines of a letter with an unusual layout. When sorting, every line it returns has to appear in your letter, numbers included, or it's dropped. Claude can also answer questions about your papers, but only by quoting them, and translate your plan. If the translation changes, adds or drops a single number, it's thrown out. Your key stays in this tab and goes only to api.anthropic.com.</p>
+      <div class="row">
+        <label class="field">Anthropic API key <input id="key" type="password" autocomplete="off" placeholder="sk-ant-…"></label>
+        <label class="field">Model <select id="model"></select></label>
+        <button class="btn" id="readClaude" disabled>Read my letter with Claude</button>
+      </div>
+    </details>
+  </section>
+
+  <section id="how" class="how">
+    <h2>How it works</h2>
+    <div class="three">
+      <div><h3>Read</h3><p>Rules, not guesses. Take Home finds the sections of your papers by their headings, then reads each medicine line for its name, strength, how many, how often, for how long, and whether it's new, changed or stopped.</p></div>
+      <div><h3>Arrange</h3><p>Each medicine goes on a daily schedule built around when you wake up and go to bed. Appointments get real dates from your discharge date. Warning signs are split into “call 911” and “call your doctor.”</p></div>
+      <div><h3>Ask</h3><p>It never changes a dose. When something needs a second look, like two medicines that both contain acetaminophen, or “as needed” with no daily limit, it writes the question for your pharmacist.</p></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">Take Home is open source (MIT). Built by Adrian Erlikhman and Michael Tarekegn. The sample patients, hospitals and phone numbers are made up. This is not medical advice: follow your care team's instructions, and call 911 in an emergency.</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

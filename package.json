@@ -1,0 +1,8 @@
+{
+  "name": "take-home",
+  "version": "1.0.0",
+  "description": "Hospital discharge instructions, turned into a plan you can follow at home.",
+  "type": "module",
+  "scripts": { "test": "node test/test.mjs" },
+  "license": "MIT"
+}
