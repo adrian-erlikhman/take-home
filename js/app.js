@@ -38,6 +38,8 @@ function render() {
   const prn = p.meds.filter((m) => m.prn && m.status !== 'stop');
   const other = notDaily(p.meds);
   const stopped = p.meds.filter((m) => m.status === 'stop');
+  const held = p.meds.filter((m) => m.status === 'hold');
+  const untimed = p.meds.filter((m) => !m.freq && !m.prn && !['stop', 'hold'].includes(m.status));
   const dont = p.rules.filter((r) => r.dont), dos = p.rules.filter((r) => !r.dont);
 
   const medHow = (m) => [
@@ -66,6 +68,8 @@ function render() {
             <span class="how"> · ${esc(doseText(m))}</span>${src(m.line)}<br><span class="how">${esc(medHow(m))}</span></span></label>`).join('')}</div></div>`).join('') || '<p class="sub">No daily medicines found.</p>'}
           ${other.length ? `<div class="prn"><h4>Not every day</h4><ul>${other.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}, ${everyLabel(m.freq.everyDays)} at ${timesFor(m, state.prefs).map(clock).join(' and ')}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${prn.length ? `<div class="prn"><h4>Only if you need it</h4><ul>${prn.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}${m.reason ? ` for ${esc(m.reason)}` : ''}${m.freq?.every ? `, no more often than every ${m.freq.every} hours` : ''}${m.max ? `, at most ${amount(m.max.n)} ${esc(units(m.max.unit, m.max.n))} in 24 hours` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
+          ${untimed.length ? `<div class="prn"><h4>No time written</h4><ul>${untimed.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)}${doseText(m) ? ` · ${esc(doseText(m))}` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
+          ${held.length ? `<div class="stopped"><h4>On hold for now</h4><ul>${held.map((m) => `<li>${esc(m.source.replace(/^HOLD\s*:\s*/i, ''))}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${stopped.length ? `<div class="stopped"><h4>Stop taking</h4><ul>${stopped.map((m) => `<li><b>${esc(m.name)}</b>${m.brand ? ` (${esc(m.brand)})` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
         </article>
         ${asks.length ? `<article class="card asks"><h3>Ask your pharmacist</h3><p class="sub">Take Home never changes a dose. These are questions to bring.</p><ul>${asks.map((a) => `<li class="${a.level}"><b>${esc(a.title)}</b>${esc(a.text)}${a.lines.filter(Boolean).map(src).join('')}</li>`).join('')}</ul></article>` : ''}
@@ -77,6 +81,7 @@ function render() {
           <div class="appt"><div class="date">${f.date ? `<span class="m">${f.by ? 'By ' : ''}${MONTH[f.date.getUTCMonth()]}</span><span class="d">${f.date.getUTCDate()}</span><span class="m">${DAY[f.date.getUTCDay()]}</span>` : '<span class="m">Date to set</span>'}</div>
           <div><div class="what">${esc(f.who)}</div><div class="when">${f.days != null ? `${f.by ? 'Within' : 'In'} ${f.days % 7 === 0 ? `${f.days / 7} week${f.days > 7 ? 's' : ''}` : `${f.days} days`}` : ''}${f.phone ? ` · call ${esc(f.phone)}${f.toSchedule ? ' to schedule' : ''}` : ''}${src(f.line)}</div></div></div>`).join('')}</article>` : ''}
         ${p.rules.length ? `<article class="card rules"><h3>For now</h3>${dont.length ? `<p class="sub">Don't</p><ul>${dont.map((r) => `<li>${esc(r.text)}${r.until ? ` <span class="until">until ${fmt(r.until)}</span>` : ''}${r.while ? ` <span class="until">while you take ${esc(r.while)}</span>` : ''}${src(r.line)}</li>`).join('')}</ul>` : ''}${dos.length ? `<p class="sub">Do</p><ul>${dos.map((r) => `<li>${esc(r.text)}${r.from ? ` <span class="until">from ${fmt(r.from)}</span>` : ''}${src(r.line)}</li>`).join('')}</ul>` : ''}</article>` : ''}
+        ${p.unread.length ? `<article class="card rules no-print"><h3>Not in this plan</h3><p class="sub">Take Home didn't sort these lines. Read them on your papers.</p><ul>${p.unread.map((l) => `<li>${esc(l.text)}${src(l.n)}</li>`).join('')}</ul></article>` : ''}
         ${gloss.length ? `<article class="card words"><h3>Words on your papers</h3><dl class="gloss">${gloss.map((g) => `<dt>${esc(g.term)}</dt><dd>${esc(g.plain)}</dd>`).join('')}</dl></article>` : ''}
       </div>
     </div>

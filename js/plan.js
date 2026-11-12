@@ -87,7 +87,7 @@ export function checksFor(plan) {
   });
 
   for (const s of stopped) {
-    const words = (s.name + ' ' + s.brand).split(/[\s,]+/).filter((w) => w.length > 3);
+    const words = (s.name + ' ' + s.brand).split(/[\s,]+/).filter((w) => w.length > 3).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const still = active.find((m) => words.some((w) => new RegExp(`\\b${w}\\b`, 'i').test(m.name + ' ' + m.brand)));
     if (still) out.push({ level: 'ask', title: `${s.name} is listed as both stop and take`, text: `Your papers say to stop ${s.name}, but also list ${label(still)}. Ask which is right.`, lines: [s.line, still.line] });
     if (NSAID.test(s.name + ' ' + s.brand)) out.push({
@@ -102,6 +102,7 @@ export function checksFor(plan) {
     if (!m.freq && !m.prn) out.push({ level: 'ask', title: `${m.name}: no time of day written`, text: `The papers don't say how often to take it. Ask before your first dose at home.`, lines: [m.line] });
     if (/as directed/i.test(m.source)) out.push({ level: 'ask', title: `${m.name}: "as directed"`, text: `"As directed" isn't written down anywhere you can check later. Ask for the directions in writing.`, lines: [m.line] });
   }
+  for (const m of plan.meds.filter((x) => x.status === 'hold')) out.push({ level: 'ask', title: `${m.name} is on hold`, text: `Ask when to start taking it again, and who will tell you.`, lines: [m.line] });
   return out;
 }
 
@@ -152,6 +153,8 @@ export function planText(plan, schedule) {
   for (const s of schedule) lines.push(`${clock(s.hour)}: ${s.meds.map((m) => `${m.name}, ${doseText(m)}`).join('; ')}.`);
   for (const m of notDaily(plan.meds)) lines.push(`${everyLabel(m.freq.everyDays)}: ${m.name}, ${doseText(m)}.`.replace(/^./, (c) => c.toUpperCase()));
   for (const m of plan.meds.filter((m) => m.prn)) lines.push(`Only if you need it: ${m.name}, ${doseText(m)}${m.reason ? ` for ${m.reason}` : ''}.`);
+  for (const m of plan.meds.filter((m) => !m.freq && !m.prn && !['stop', 'hold'].includes(m.status))) lines.push(`No time written: ${m.name}${doseText(m) ? `, ${doseText(m)}` : ''}.`);
+  for (const m of plan.meds.filter((m) => m.status === 'hold')) lines.push(`On hold for now: ${m.name}.`);
   for (const m of plan.meds.filter((m) => m.status === 'stop')) lines.push(`Stop taking ${m.name}.`);
   for (const w of plan.er) lines.push(`Call 911: ${w.text}.`);
   for (const w of plan.call) lines.push(`Call your doctor: ${w.text}.`);

@@ -111,6 +111,17 @@ test('rules get end dates', () => {
   assert.equal(surgery.rules.find((r) => /drive/.test(r.text)).while, 'oxycodone');
 });
 
+test('no medicine drops out of the plan', () => {
+  const p = parseInstructions('MEDICATIONS\nHOLD: Lisinopril 10 mg - until you see your doctor.\nVitamin D 1,000 units - Take 1 tablet.\nSTOP: Aspirin[EC] 81 mg');
+  const text = planText(p, daySchedule(p.meds));
+  assert.match(text, /On hold for now: Lisinopril/);
+  assert.match(text, /No time written: Vitamin D, 1 tablet \(1,000 units\)/);
+  assert.match(text, /Stop taking Aspirin\[EC\]/);
+  const asks = checksFor(p).map((c) => c.title);
+  assert.ok(asks.includes('Lisinopril is on hold'));
+  assert.ok(asks.includes('Vitamin D: no time of day written'));
+});
+
 test('pharmacist questions', () => {
   const s = checksFor(surgery).map((c) => c.title);
   assert.ok(s.includes('Two of your medicines contain acetaminophen'));
