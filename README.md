@@ -12,14 +12,14 @@ About 36% of U.S. adults have basic or below-basic health literacy (2003 Nationa
 
 ## What it does
 
-- **Your day.** Each medicine on a schedule built around when you wake up and go to bed, with new and changed doses marked, "only if you need it" medicines kept separate with their limits, and stopped medicines listed on their own.
+- **Your day.** Each medicine on a schedule built around when you wake up and go to bed, with new and changed doses marked. "Only if you need it" medicines are kept separate with their limits, and every-other-day or weekly medicines, medicines on hold, medicines with no time written, and stopped medicines each get their own list, so none drops out.
 - **Warning signs**, split into "call 911" and "call your doctor".
-- **Appointments** with dates counted from the discharge date ("in 7 days" becomes Tue, Nov 17).
+- **Appointments** with dates counted from the discharge date ("in 7 days" becomes Tue, Nov 17), or the date and time written on them. If the papers have no discharge date, the plan asks for the day you went home.
 - **For now.** Restrictions with end dates ("no lifting more than 10 pounds for 4 weeks" becomes "until Mon, Dec 7").
 - **Ask your pharmacist.** Two medicines that both contain acetaminophen (the FDA's adult limit is 4,000 mg a day from all medicines combined), two NSAIDs, "as needed" with no daily limit, no time of day, "as directed", or a medicine listed as both stop and take.
 - **Words on your papers**, in plain language.
 - **Print for the fridge** (one page) and **Add to my calendar** (.ics with medicine reminders and appointments).
-- **Your papers, line by line.** Every item links back to its line.
+- **Your papers, line by line.** Every item links back to its line. Lines Take Home couldn't sort are listed under "Not in this plan".
 
 ## Where AI fits (optional, your own Anthropic key)
 
@@ -50,12 +50,12 @@ js/samples.js   two made-up discharge letters
 js/app.js       interface
 vendor/pdfjs    Mozilla pdf.js (Apache 2.0), for loading PDFs
 fonts/          Inter and Source Serif 4 (SIL Open Font License)
-test/test.mjs   15 tests
+test/test.mjs   21 tests
 ```
 
 ## Limits
 
-- It reads the common layouts of U.S. discharge instructions in English. Papers without headings may need Claude's help or some editing.
+- It reads the common layouts of U.S. discharge instructions and after-visit summaries in English, including medicines written over several lines. Medicine lines are read even without a heading; the other parts need their headings, Claude's help or some editing.
 - Times are a suggestion built from "twice a day" and similar wording. If your care team gave you exact times, use theirs.
 - It is not medical advice and doesn't replace your care team or pharmacist. In an emergency, call 911.
 
