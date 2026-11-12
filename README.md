@@ -2,7 +2,7 @@
 
 Paste hospital discharge instructions. Take Home turns them into a plan you can follow at home: a daily medicine schedule, the warning signs that mean "call 911" or "call your doctor", appointments with real dates, what not to do and until when, and the questions to bring your pharmacist. Every item points back to the line on your papers it came from.
 
-**Live: https://adrian-erlikhman.github.io/take-home/** · [1-minute demo](https://youtu.be/SdFiaW_MIWU) · [heart failure sample](https://adrian-erlikhman.github.io/take-home/?demo=heart) · [after-surgery sample](https://adrian-erlikhman.github.io/take-home/?demo=surgery)
+**Live: https://adrian-erlikhman.github.io/take-home/** · [1-minute demo](https://youtu.be/SdFiaW_MIWU) · [heart failure sample](https://adrian-erlikhman.github.io/take-home/?demo=heart) · [after-surgery sample](https://adrian-erlikhman.github.io/take-home/?demo=surgery) · [one-page summary](docs/take-home-one-page.pdf) · [slides](docs/take-home-slides.pdf)
 
 Everything runs in the browser. There is no server and no account.
 
