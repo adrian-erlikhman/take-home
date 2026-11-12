@@ -59,6 +59,8 @@ test/test.mjs   15 tests
 - Times are a suggestion built from "twice a day" and similar wording. If your care team gave you exact times, use theirs.
 - It is not medical advice and doesn't replace your care team or pharmacist. In an emergency, call 911.
 
+See [AI-DISCLOSURE.md](AI-DISCLOSURE.md) for how AI was used to build Take Home and where it runs inside it.
+
 ## Credits
 
 Built by Adrian Erlikhman and Michael Tarekegn in November 2026, with Claude Code as a coding assistant. The sample patients, hospitals and phone numbers are made up. MIT licensed.
