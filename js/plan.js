@@ -128,24 +128,41 @@ const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
 const esc = (s) => String(s).replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
 
+// RFC 5545: lines of at most 75 bytes; longer ones continue on a line that starts with a space.
+const bytes = (c) => new TextEncoder().encode(c).length;
+function fold(line) {
+  const out = [];
+  let cur = '', n = 0;
+  for (const c of line) {
+    if (n + bytes(c) > (out.length ? 74 : 75)) { out.push(cur); cur = ''; n = 0; }
+    cur += c; n += bytes(c);
+  }
+  return [...out, cur].join('\r\n ');
+}
+
 export function icsFor(plan, start, prefs = PREFS) {
   const ev = [];
+  // UIDs must differ between files, or a calendar replaces one plan's events with the next one's.
+  const file = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let uid = 0;
-  const stamp = ymd(new Date()) + 'T000000Z';
+  const now = new Date();
+  const stamp = now.toISOString().replace(/[-:]|\.\d+/g, '');
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())); // the local date
   for (const f of plan.followups) if (f.date) ev.push([
-    'BEGIN:VEVENT', `UID:take-home-${uid++}@local`, `DTSTAMP:${stamp}`,
-    `DTSTART;VALUE=DATE:${ymd(f.date)}`, `SUMMARY:${esc((f.by ? 'By today: ' : '') + f.who)}`,
+    'BEGIN:VEVENT', `UID:${file}-${uid++}@take-home`, `DTSTAMP:${stamp}`,
+    ...(f.time ? [`DTSTART:${ymd(f.date)}T${pad(f.time.h)}${pad(f.time.m)}00`, 'DURATION:PT1H'] : [`DTSTART;VALUE=DATE:${ymd(f.date)}`]),
+    `SUMMARY:${esc((f.by ? 'By today: ' : '') + f.who)}`,
     `DESCRIPTION:${esc(`From your discharge papers: "${f.source}"`)}`, 'END:VEVENT']);
   for (const m of plan.meds) for (const h of timesFor(m, prefs)) {
-    const d = start || plan.info.discharged || new Date();
+    const d = start || plan.info.discharged || today;
     const every = m.freq.everyDays || 1;
     const count = Math.ceil((m.days || 30) / every);
-    ev.push(['BEGIN:VEVENT', `UID:take-home-${uid++}@local`, `DTSTAMP:${stamp}`,
+    ev.push(['BEGIN:VEVENT', `UID:${file}-${uid++}@take-home`, `DTSTAMP:${stamp}`,
       `DTSTART:${ymd(d)}T${pad(h)}0000`, `DURATION:PT10M`, `RRULE:FREQ=DAILY;${every > 1 ? `INTERVAL=${every};` : ''}COUNT=${count}`,
-      `SUMMARY:${esc(`${m.name}: ${doseText(m)}`)}`, `DESCRIPTION:${esc(`From your discharge papers: "${m.source}"`)}`,
+      `SUMMARY:${esc(`${m.name}: ${m.mixed ? 'check the amount on your papers' : doseText(m)}`)}`, `DESCRIPTION:${esc(`From your discharge papers: "${m.source}"`)}`,
       'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(m.name)}`, 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT']);
   }
-  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Take Home//EN', ...ev.flat(), 'END:VCALENDAR'].join('\r\n');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Take Home//EN', 'CALSCALE:GREGORIAN', ...ev.flat(), 'END:VCALENDAR'].map(fold).join('\r\n') + '\r\n';
 }
 
 // ---------- the plan as plain text (for reading level and translation) ----------

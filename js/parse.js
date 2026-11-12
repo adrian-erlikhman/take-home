@@ -161,7 +161,7 @@ export function parseMed(line, groupStatus = '') {
     whileTaking,
     withFood: /with (food|meals?)/i.test(how),
     note: (how.match(/(dose (?:increased|decreased|changed)[^.]*\.?|finish all[^.]*\.?)/i) || [])[1] || (mixed ? 'Different amounts at different times: check your papers.' : ''),
-    source: text, line: line.n ?? null,
+    mixed, source: text, line: line.n ?? null,
   };
 }
 

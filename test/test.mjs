@@ -187,6 +187,11 @@ test('calendar file', () => {
   assert.match(ics, /SUMMARY:Cephalexin: 1 capsule \(500 mg\)/);
   assert.match(ics, /RRULE:FREQ=DAILY;COUNT=7/);
   assert.ok(!/Oxycodone/.test(ics.split('BEGIN:VEVENT').filter((e) => /RRULE/.test(e)).join('')), 'as-needed medicines get no reminders');
+  assert.ok(ics.split('\r\n').every((l) => new TextEncoder().encode(l).length <= 75), 'long lines are folded');
+  const uids = (s) => s.match(/^UID:.*$/gm);
+  assert.equal(new Set([...uids(ics), ...uids(icsFor(surgery))]).size, uids(ics).length * 2, 'every file has its own UIDs');
+  const timed = parseInstructions('FOLLOW-UP\nDr. Smith on 11/20/2026 at 2:15 PM.');
+  assert.match(icsFor(timed), /DTSTART:20261120T141500\r\nDURATION:PT1H/);
 });
 
 test('Claude lines must be in the letter', () => {
