@@ -66,10 +66,15 @@ export function sectionsOf(text) {
 // ---------- header ----------
 export function headerInfo(text) {
   const get = (re) => (text.match(re) || [])[1]?.trim();
-  const date = get(/discharge(?:d)?\s*date\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+  // "Discharge date: 11/10/2026", "Date of discharge: Nov. 10, 2026", "Discharged: 2026-11-10"
+  let discharged = null;
+  for (const m of text.matchAll(/(?:discharge(?:d)?(?:\s+date)?|date\s+of\s+discharge)\s*:?\s*/gi)) {
+    const d = dateIn(text.slice(m.index + m[0].length, m.index + m[0].length + 24));
+    if (d && d.index === 0) { discharged = d.date; break; }
+  }
   return {
     patient: get(/patient(?:\s*name)?\s*:\s*([A-Za-z.' -]+?)(?:\s{2,}|\t|$|\s+discharge)/im),
-    discharged: date ? toDate(date) : null,
+    discharged,
     reason: get(/(?:reason for (?:your )?(?:hospital )?stay|diagnosis|procedure)\s*:\s*(.+)/i),
   };
 }
@@ -77,6 +82,22 @@ export function headerInfo(text) {
 export function toDate(s) {
   const [m, d, y] = s.split('/').map(Number);
   return new Date(Date.UTC(y < 100 ? 2000 + y : y, m - 1, d));
+}
+
+// The first date written in s: 11/17/2026, 11-17-26, 2026-11-17, Nov. 17, November 17, 2026.
+// Without a year, the date falls on or after `near` (the discharge date).
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const DATE = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})\b|\b(\d{4})-(\d{1,2})-(\d{1,2})\b|\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b(?:,?\s+(\d{4}))?/i;
+export function dateIn(s, near = null) {
+  const m = String(s).match(DATE);
+  if (!m) return null;
+  let [y, mo, d] = m[1] ? [+m[3], +m[1], +m[2]] : m[4] ? [+m[4], +m[5], +m[6]] : [m[9] ? +m[9] : null, MONTHS.indexOf(m[7].slice(0, 3).toLowerCase()) + 1, +m[8]];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  if (y == null) y = (near || new Date()).getUTCFullYear();
+  if (y < 100) y += 2000;
+  let date = new Date(Date.UTC(y, mo - 1, d));
+  if (m[7] && !m[9] && near && date < near) date = new Date(Date.UTC(y + 1, mo - 1, d));
+  return { date, index: m.index };
 }
 
 // ---------- medications ----------
@@ -185,14 +206,39 @@ export function frequency(s) {
 const PHONE = /(\(\d{3}\)\s*\d{3}-\d{4}|\b\d{3}-\d{3}-\d{4}\b|\b\d{3}-\d{4}\b)/;
 
 export function addDays(date, n) { return date ? new Date(date.getTime() + n * 86400000) : null; }
+const addMonths = (date, n) => (date ? new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + n, date.getUTCDate())) : null);
+
+// "4 weeks", "two weeks", "1-2 weeks", "3 months": the later end of a range, as a date.
+const SPAN = String.raw`(${N})(?:\s*(?:to|-|–|or)\s*(${N}))?\s+(hours?|days?|weeks?|months?)\b`;
+function spanEnd(m, from, i = 1) {
+  const n = num(m[i + 1] || m[i]), u = m[i + 2];
+  if (/month/i.test(u)) return addMonths(from, n);
+  return addDays(from, Math.ceil(n * (/week/i.test(u) ? 7 : /hour/i.test(u) ? 1 / 24 : 1)));
+}
+function spanText(m, i = 1) {
+  const a = num(m[i]), b = m[i + 1] ? num(m[i + 1]) : null, u = m[i + 2].toLowerCase().replace(/s$/, '');
+  if (b != null) return `${a} to ${b} ${u}s`;
+  if (u === 'day' && a % 7 === 0) return `${a / 7} week${a > 7 ? 's' : ''}`;
+  return `${a} ${u}${a === 1 ? '' : 's'}`;
+}
 
 export function parseFollowup(line, discharged) {
   const t = line.text;
-  const w = t.match(/\b(in|within)\s+(\d+)\s+(days?|weeks?|months?)\b/i);
-  const n = w ? +w[2] * (/week/i.test(w[3]) ? 7 : /month/i.test(w[3]) ? 30 : 1) : null;
-  const who = t.split(/\s+(?:in|within)\s+\d/)[0].split(/(?<!\b(?:Dr|St|Mr|Mrs|Ms))\.\s/)[0].replace(/\.$/, '').trim();
+  const w = t.match(new RegExp(String.raw`\b(in|within)\s+(?:the next\s+)?${SPAN}`, 'i'));
+  const on = dateIn(t, discharged);
+  const time = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\b\.?/i);
+  const range = !!w?.[3];
+  const by = !on && !!w && (/within/i.test(w[1]) || range);
+  const date = on ? on.date : w ? spanEnd(w, discharged, 2) : null;
+  // Who or what, without the when: "Cardiology clinic with Dr. Patel" from "... in 7 days. Call ..."
+  const cuts = [w?.index, on?.index, time?.index, t.search(/\s(?:on|-|–)\s+(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\b/i)].filter((i) => i > 0);
+  const who = (cuts.length ? t.slice(0, Math.min(...cuts)) : t).split(/(?<!\b(?:Dr|St|Mr|Mrs|Ms))\.\s/)[0]
+    .replace(/\s+(?:on|at)\s*$/i, '').replace(/[\s,;:–-]+$/, '').replace(/\.$/, '').trim();
   return {
-    who, by: w && /within/i.test(w[1]), days: n, date: n != null ? addDays(discharged, n) : null,
+    who, by, date,
+    days: w && !on && !/month/i.test(w[4]) ? Math.ceil(num(w[3] || w[2]) * (/week/i.test(w[4]) ? 7 : /hour/i.test(w[4]) ? 1 / 24 : 1)) : null,
+    when: on ? (time ? `${+time[1]}:${time[2] || '00'} ${time[3].toUpperCase()}M` : '') : w ? `${/within/i.test(w[1]) ? 'Within' : 'In'} ${spanText(w, 2)}` : '',
+    time: on && time ? { h: (+time[1] % 12) + (/p/i.test(time[3]) ? 12 : 0), m: +(time[2] || 0) } : null,
     phone: (t.match(PHONE) || [])[1] || '', toSchedule: /call\b.*\bto schedule|schedule/i.test(t),
     source: t, line: line.n,
   };
@@ -200,22 +246,22 @@ export function parseFollowup(line, discharged) {
 
 export function parseRule(line, kind, discharged) {
   const t = line.text;
-  const dont = /^(no|do not|don't|avoid|never)\b/i.test(t) || /\b(less than|no more than|not more than|limit)\b/i.test(t);
-  const d = t.match(/\bfor\s+(\d+)\s+(days?|weeks?|hours?)\b/i);
-  const after = t.match(/\bin\s+(\d+)\s+(hours?|days?)\b/i);
-  const n = (m) => m && +m[1] * (/week/i.test(m[2]) ? 7 : /hour/i.test(m[2]) ? 1 / 24 : 1);
+  const dont = /^(no|do not|don't|avoid|never)\b/i.test(t) || /\b(less than|no more than|not more than|limit|should not|shouldn't|must not|may not|cannot|can't|do not|don't|avoid|never)\b/i.test(t);
+  const d = t.match(new RegExp(String.raw`\bfor\s+(?:at least\s+|the next\s+|about\s+|another\s+)?${SPAN}`, 'i'));
+  const after = t.match(new RegExp(String.raw`\b(?:in|after)\s+${SPAN}`, 'i'));
   return {
     kind, dont, text: t,
-    until: d ? addDays(discharged, Math.ceil(n(d))) : null,
-    from: after && !d && /may|can/i.test(t) ? addDays(discharged, Math.ceil(n(after))) : null,
+    until: d ? spanEnd(d, discharged) : null,
+    from: after && !d && /\b(may|can)\b/i.test(t) ? spanEnd(after, discharged) : null,
     while: (t.match(/\bwhile (?:you are )?taking ([\w-]+)/i) || [])[1] || '',
     source: t, line: line.n,
   };
 }
 
 // ---------- the whole letter ----------
-export function parseInstructions(text) {
+export function parseInstructions(text, { discharged = null } = {}) {
   const info = headerInfo(text);
+  info.discharged ||= discharged; // the day the person entered, when the papers have none
   const sections = sectionsOf(text);
   const plan = { info, meds: [], followups: [], er: [], call: [], rules: [], callPhone: '', unread: [] };
   const instruction = new RegExp(String.raw`^${VERB}\b`, 'i');

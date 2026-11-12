@@ -18,8 +18,9 @@ function status(msg, err = false) { const s = $('#status'); s.textContent = msg;
 
 function make(text) {
   state.text = text;
+  state.went = null;
   state.plan = parseInstructions(text);
-  if (!state.plan.meds.length && !state.plan.followups.length && !state.plan.er.length && !state.plan.call.length) {
+  if (!state.plan.meds.length && !state.plan.followups.length && !state.plan.er.length && !state.plan.call.length && !state.plan.rules.length) {
     $('#plan').hidden = true;
     return status('No sections found. Keep the headings, like “Medications” and “Call your doctor if”, or try Claude below.', true);
   }
@@ -51,7 +52,8 @@ function render() {
   $('#plan').innerHTML = `
     <div class="plan-head">
       <div><h2>Your plan at home</h2>
-        <div class="who">${esc([p.info.patient, p.info.reason].filter(Boolean).join(' · '))}${day0 ? ` · went home ${fmt(day0)}` : ''}</div></div>
+        <div class="who">${esc([p.info.patient, p.info.reason, day0 ? `went home ${fmt(day0)}` : ''].filter(Boolean).join(' · '))}</div>
+        ${day0 && !state.went ? '' : `<label class="field inline went">${state.went ? 'Day you went home:' : 'No discharge date found. To count dates, add the day you went home:'} <input type="date" id="went" value="${state.went ? state.went.toISOString().slice(0, 10) : ''}"></label>`}</div>
       <div class="plan-actions">
         <button class="btn small" data-act="print">Print for the fridge</button>
         <button class="btn small" data-act="ics">Add to my calendar</button>
@@ -79,7 +81,7 @@ function render() {
         ${p.call.length ? `<article class="warn call"><h3>Call your doctor${p.callPhone ? ` at <span class="phone">${esc(p.callPhone)}</span>` : ''}</h3><p class="sub">If:</p><ul>${p.call.map((w) => `<li>${esc(w.text)}${src(w.line)}</li>`).join('')}</ul></article>` : ''}
         ${p.followups.length ? `<article class="card"><h3>Appointments</h3><p class="sub">Dates are counted from the day you went home. Call to confirm the exact time.</p>${p.followups.map((f) => `
           <div class="appt"><div class="date">${f.date ? `<span class="m">${f.by ? 'By ' : ''}${MONTH[f.date.getUTCMonth()]}</span><span class="d">${f.date.getUTCDate()}</span><span class="m">${DAY[f.date.getUTCDay()]}</span>` : '<span class="m">Date to set</span>'}</div>
-          <div><div class="what">${esc(f.who)}</div><div class="when">${f.days != null ? `${f.by ? 'Within' : 'In'} ${f.days % 7 === 0 ? `${f.days / 7} week${f.days > 7 ? 's' : ''}` : `${f.days} days`}` : ''}${f.phone ? ` · call ${esc(f.phone)}${f.toSchedule ? ' to schedule' : ''}` : ''}${src(f.line)}</div></div></div>`).join('')}</article>` : ''}
+          <div><div class="what">${esc(f.who)}</div><div class="when">${esc([f.when, f.phone ? `call ${f.phone}${f.toSchedule ? ' to schedule' : ''}` : ''].filter(Boolean).join(' · '))}${src(f.line)}</div></div></div>`).join('')}</article>` : ''}
         ${p.rules.length ? `<article class="card rules"><h3>For now</h3>${dont.length ? `<p class="sub">Don't</p><ul>${dont.map((r) => `<li>${esc(r.text)}${r.until ? ` <span class="until">until ${fmt(r.until)}</span>` : ''}${r.while ? ` <span class="until">while you take ${esc(r.while)}</span>` : ''}${src(r.line)}</li>`).join('')}</ul>` : ''}${dos.length ? `<p class="sub">Do</p><ul>${dos.map((r) => `<li>${esc(r.text)}${r.from ? ` <span class="until">from ${fmt(r.from)}</span>` : ''}${src(r.line)}</li>`).join('')}</ul>` : ''}</article>` : ''}
         ${p.unread.length ? `<article class="card rules no-print"><h3>Not in this plan</h3><p class="sub">Take Home didn't sort these lines. Read them on your papers.</p><ul>${p.unread.map((l) => `<li>${esc(l.text)}${src(l.n)}</li>`).join('')}</ul></article>` : ''}
         ${gloss.length ? `<article class="card words"><h3>Words on your papers</h3><dl class="gloss">${gloss.map((g) => `<dt>${esc(g.term)}</dt><dd>${esc(g.plain)}</dd>`).join('')}</dl></article>` : ''}
@@ -185,6 +187,13 @@ const hours = Array.from({ length: 24 }, (_, h) => h);
 $('#wake').innerHTML = hours.filter((h) => h >= 4 && h <= 12).map((h) => `<option value="${h}" ${h === state.prefs.wake ? 'selected' : ''}>${clock(h)}</option>`).join('');
 $('#bed').innerHTML = hours.filter((h) => h >= 19).map((h) => `<option value="${h}" ${h === state.prefs.bed ? 'selected' : ''}>${clock(h)}</option>`).join('');
 for (const id of ['wake', 'bed']) $('#' + id).addEventListener('change', (e) => { state.prefs[id] = +e.target.value; if (state.plan) render(); });
+document.addEventListener('change', (e) => {
+  if (e.target.id !== 'went' || !state.plan) return;
+  state.went = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
+  state.plan = parseInstructions(state.text, { discharged: state.went });
+  render();
+  $('#went')?.focus();
+});
 $('#model').innerHTML = MODELS.map((m) => `<option>${m}</option>`).join('');
 $('#model').addEventListener('change', (e) => { state.model = e.target.value; });
 $('#key').addEventListener('input', (e) => {

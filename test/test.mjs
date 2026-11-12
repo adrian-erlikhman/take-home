@@ -111,6 +111,20 @@ test('rules get end dates', () => {
   assert.equal(surgery.rules.find((r) => /drive/.test(r.text)).while, 'oxycodone');
 });
 
+test('dates written other ways', () => {
+  for (const s of ['Discharge Date: November 10, 2026', 'Date of discharge: 11/10/2026', 'Discharged: 11/10/26', 'Discharge date: 2026-11-10'])
+    assert.equal(iso(parseInstructions(s).info.discharged), '2026-11-10', s);
+  const p = parseInstructions(['Discharge date: 11/10/2026', 'FOLLOW-UP', 'Follow up with Dr. Patel on 11/20/2026 at 10:30 AM.',
+    'See your primary care doctor in one week.', 'Cardiology in 1-2 weeks.', 'ACTIVITY', 'You should not drive for 1 week.', 'No lifting for 4 to 6 weeks.'].join('\n'));
+  assert.deepEqual(p.followups.map((f) => [f.who, iso(f.date), f.when]), [
+    ['Follow up with Dr. Patel', '2026-11-20', '10:30 AM'], ['See your primary care doctor', '2026-11-17', 'In 1 week'], ['Cardiology', '2026-11-24', 'In 1 to 2 weeks']]);
+  const [drive, lift] = p.rules;
+  assert.ok(drive.dont, '"should not" is a don\'t'); assert.equal(iso(drive.until), '2026-11-17');
+  assert.equal(iso(lift.until), '2026-12-22', 'the later end of a range');
+  const entered = parseInstructions('FOLLOW-UP\nClinic in 7 days.', { discharged: new Date(Date.UTC(2026, 10, 10)) });
+  assert.equal(iso(entered.followups[0].date), '2026-11-17', 'counted from a date the person enters');
+});
+
 test('after-visit summary layout', () => {
   const p = parseInstructions([
     'START taking these medications', 'amLODIPine 5 MG tablet', 'Commonly known as: NORVASC', 'Take 1 tablet (5 mg total) by mouth daily.', '',

@@ -68,6 +68,8 @@ select, input[type=password] { padding: 8px 10px; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 14px; }
 .field.inline { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; color: var(--ink-2); }
+.went { margin-top: 10px; flex-wrap: wrap; font-size: 14px; }
+.went input { font: 14px var(--sans); padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: #FCFBF8; color: var(--ink); }
 .file input { display: none; }
 .status { color: var(--muted); font-size: 14px; }
 .status.err { color: var(--red); }
@@ -153,7 +155,7 @@ section.how h2 { font-size: 30px; }
 }
 @media print {
   @page { margin: 0.4in; }
-  .top, .hero, .input, section.how, .foot, .plan-actions, .src, .source, .reading, .no-print, .words { display: none !important; }
+  .top, .hero, .input, section.how, .foot, .plan-actions, .src, .source, .reading, .no-print, .words, .went { display: none !important; }
   body { background: #fff; font-size: 11px; line-height: 1.35; }
   main { padding: 0; }
   .plan { padding: 0; }
