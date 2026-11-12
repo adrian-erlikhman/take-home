@@ -111,6 +111,25 @@ test('rules get end dates', () => {
   assert.equal(surgery.rules.find((r) => /drive/.test(r.text)).while, 'oxycodone');
 });
 
+test('after-visit summary layout', () => {
+  const p = parseInstructions([
+    'START taking these medications', 'amLODIPine 5 MG tablet', 'Commonly known as: NORVASC', 'Take 1 tablet (5 mg total) by mouth daily.', '',
+    'STOP taking these medications', 'hydroCHLOROthiazide 25 MG tablet', '',
+    'Follow-up Information', 'Follow up with Jane Doe, MD in 1 week.'].join('\n'));
+  assert.deepEqual(p.meds.map((m) => [m.status, m.name, m.brand, doseText(m)]), [
+    ['start', 'amLODIPine', 'NORVASC', '1 tablet (5 mg)'], ['stop', 'hydroCHLOROthiazide', '', '25 mg']]);
+  assert.deepEqual(timesFor(p.meds[0]), [8]);
+  assert.equal(p.followups[0].who, 'Follow up with Jane Doe, MD');
+  assert.deepEqual(p.unread, []);
+});
+
+test('lines in capitals, and no headings at all', () => {
+  const caps = parseInstructions('MEDICATIONS\nNEW: FUROSEMIDE 40 MG TABLET - TAKE 1 TABLET BY MOUTH DAILY. CHECK YOUR WEIGHT\nSTOP: ASPIRIN');
+  assert.deepEqual(caps.meds.map((m) => [m.status, m.name]), [['new', 'FUROSEMIDE'], ['stop', 'ASPIRIN']], 'medicine lines are not headings');
+  const bare = parseInstructions('Lisinopril 10 mg - take 1 tablet daily\nMetformin 500 mg - take 1 tablet twice a day');
+  assert.deepEqual(bare.meds.map((m) => [m.name, timesFor(m).length]), [['Lisinopril', 1], ['Metformin', 2]]);
+});
+
 test('no medicine drops out of the plan', () => {
   const p = parseInstructions('MEDICATIONS\nHOLD: Lisinopril 10 mg - until you see your doctor.\nVitamin D 1,000 units - Take 1 tablet.\nSTOP: Aspirin[EC] 81 mg');
   const text = planText(p, daySchedule(p.meds));

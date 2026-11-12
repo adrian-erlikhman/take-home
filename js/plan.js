@@ -7,7 +7,7 @@ export const PREFS = { wake: 8, bed: 22 };
 // ---------- daily times ----------
 export function timesFor(med, prefs = PREFS) {
   const f = med.freq;
-  if (!f || med.prn || med.status === 'stop' || med.status === 'hold') return [];
+  if (!f || med.prn || ['stop', 'hold', 'ask'].includes(med.status)) return [];
   const { wake, bed } = prefs;
   if (f.every) {
     if (f.every >= 24) return [wake];
@@ -39,7 +39,7 @@ export function daySchedule(meds, prefs = PREFS) {
 const order = (h) => (h < 5 ? h + 24 : h); // overnight doses go last
 
 export const everyLabel = (n) => (n === 2 ? 'every other day' : n === 7 ? 'once a week' : `every ${n} days`);
-export const notDaily = (meds) => meds.filter((m) => m.freq?.everyDays && !m.prn && !['stop', 'hold'].includes(m.status));
+export const notDaily = (meds) => meds.filter((m) => m.freq?.everyDays && !m.prn && !['stop', 'hold', 'ask'].includes(m.status));
 
 export const clock = (h) => {
   const hh = ((h + 11) % 12) + 1;
@@ -67,7 +67,7 @@ const APAP = /acetaminophen|\bAPAP\b|tylenol|percocet|norco|vicodin|lortab|endoc
 const NSAID = /ibuprofen|advil|motrin|naproxen|aleve|ketorolac|toradol|meloxicam|mobic|celecoxib|celebrex|diclofenac|aspirin/i;
 
 export function checksFor(plan) {
-  const active = plan.meds.filter((m) => !['stop', 'hold'].includes(m.status));
+  const active = plan.meds.filter((m) => !['stop', 'hold', 'ask'].includes(m.status));
   const stopped = plan.meds.filter((m) => m.status === 'stop');
   const label = (m) => m.name + (m.brand ? ` (${m.brand})` : '');
   const out = [];
@@ -103,6 +103,7 @@ export function checksFor(plan) {
     if (/as directed/i.test(m.source)) out.push({ level: 'ask', title: `${m.name}: "as directed"`, text: `"As directed" isn't written down anywhere you can check later. Ask for the directions in writing.`, lines: [m.line] });
   }
   for (const m of plan.meds.filter((x) => x.status === 'hold')) out.push({ level: 'ask', title: `${m.name} is on hold`, text: `Ask when to start taking it again, and who will tell you.`, lines: [m.line] });
+  for (const m of plan.meds.filter((x) => x.status === 'ask')) out.push({ level: 'ask', title: `${m.name}: ask before you take it`, text: `Your papers list it under "ask your doctor". Ask whether to keep taking it.`, lines: [m.line] });
   return out;
 }
 
@@ -153,8 +154,9 @@ export function planText(plan, schedule) {
   for (const s of schedule) lines.push(`${clock(s.hour)}: ${s.meds.map((m) => `${m.name}, ${doseText(m)}`).join('; ')}.`);
   for (const m of notDaily(plan.meds)) lines.push(`${everyLabel(m.freq.everyDays)}: ${m.name}, ${doseText(m)}.`.replace(/^./, (c) => c.toUpperCase()));
   for (const m of plan.meds.filter((m) => m.prn)) lines.push(`Only if you need it: ${m.name}, ${doseText(m)}${m.reason ? ` for ${m.reason}` : ''}.`);
-  for (const m of plan.meds.filter((m) => !m.freq && !m.prn && !['stop', 'hold'].includes(m.status))) lines.push(`No time written: ${m.name}${doseText(m) ? `, ${doseText(m)}` : ''}.`);
+  for (const m of plan.meds.filter((m) => !m.freq && !m.prn && !['stop', 'hold', 'ask'].includes(m.status))) lines.push(`No time written: ${m.name}${doseText(m) ? `, ${doseText(m)}` : ''}.`);
   for (const m of plan.meds.filter((m) => m.status === 'hold')) lines.push(`On hold for now: ${m.name}.`);
+  for (const m of plan.meds.filter((m) => m.status === 'ask')) lines.push(`Ask your doctor before taking: ${m.name}.`);
   for (const m of plan.meds.filter((m) => m.status === 'stop')) lines.push(`Stop taking ${m.name}.`);
   for (const w of plan.er) lines.push(`Call 911: ${w.text}.`);
   for (const w of plan.call) lines.push(`Call your doctor: ${w.text}.`);

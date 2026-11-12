@@ -38,8 +38,8 @@ function render() {
   const prn = p.meds.filter((m) => m.prn && m.status !== 'stop');
   const other = notDaily(p.meds);
   const stopped = p.meds.filter((m) => m.status === 'stop');
-  const held = p.meds.filter((m) => m.status === 'hold');
-  const untimed = p.meds.filter((m) => !m.freq && !m.prn && !['stop', 'hold'].includes(m.status));
+  const held = p.meds.filter((m) => ['hold', 'ask'].includes(m.status));
+  const untimed = p.meds.filter((m) => !m.freq && !m.prn && !['stop', 'hold', 'ask'].includes(m.status));
   const dont = p.rules.filter((r) => r.dont), dos = p.rules.filter((r) => !r.dont);
 
   const medHow = (m) => [
@@ -69,7 +69,7 @@ function render() {
           ${other.length ? `<div class="prn"><h4>Not every day</h4><ul>${other.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}, ${everyLabel(m.freq.everyDays)} at ${timesFor(m, state.prefs).map(clock).join(' and ')}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${prn.length ? `<div class="prn"><h4>Only if you need it</h4><ul>${prn.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}${m.reason ? ` for ${esc(m.reason)}` : ''}${m.freq?.every ? `, no more often than every ${m.freq.every} hours` : ''}${m.max ? `, at most ${amount(m.max.n)} ${esc(units(m.max.unit, m.max.n))} in 24 hours` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${untimed.length ? `<div class="prn"><h4>No time written</h4><ul>${untimed.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)}${doseText(m) ? ` · ${esc(doseText(m))}` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
-          ${held.length ? `<div class="stopped"><h4>On hold for now</h4><ul>${held.map((m) => `<li>${esc(m.source.replace(/^HOLD\s*:\s*/i, ''))}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
+          ${held.length ? `<div class="stopped"><h4>${held.some((m) => m.status === 'ask') ? 'Not for now' : 'On hold for now'}</h4><ul>${held.map((m) => `<li>${m.status === 'ask' ? `<b>${esc(m.name)}</b>${m.brand ? ` (${esc(m.brand)})` : ''}: ask your doctor before taking it` : esc(m.source.replace(/^HOLD\s*:\s*/i, ''))}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${stopped.length ? `<div class="stopped"><h4>Stop taking</h4><ul>${stopped.map((m) => `<li><b>${esc(m.name)}</b>${m.brand ? ` (${esc(m.brand)})` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
         </article>
         ${asks.length ? `<article class="card asks"><h3>Ask your pharmacist</h3><p class="sub">Take Home never changes a dose. These are questions to bring.</p><ul>${asks.map((a) => `<li class="${a.level}"><b>${esc(a.title)}</b>${esc(a.text)}${a.lines.filter(Boolean).map(src).join('')}</li>`).join('')}</ul></article>` : ''}

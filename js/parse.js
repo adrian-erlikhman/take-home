@@ -3,7 +3,7 @@
 
 const HEADINGS = [
   ['er', /\b911\b|EMERGENCY/i],
-  ['call', /\bCALL\b.*\b(DOCTOR|SURGEON|PROVIDER|NURSE|CLINIC|CARE TEAM|OFFICE)\b|WHEN TO CALL/i],
+  ['call', /\b(CALL|CONTACT|NOTIFY)\b.*\b(DOCTOR|SURGEON|PROVIDER|NURSE|CLINIC|CARE TEAM|OFFICE)\b|WHEN TO CALL/i],
   ['meds', /MEDICATION|MEDICINE|PRESCRIPTION/i],
   ['followup', /FOLLOW|APPOINTMENT/i],
   ['diet', /\bDIET\b|EATING|FLUIDS?\b/i],
@@ -11,19 +11,40 @@ const HEADINGS = [
   ['wound', /WOUND|INCISION|DRESSING/i],
   ['weights', /WEIGHT/i],
 ];
+// After-visit summaries group medicines: "STOP taking these medications",
+// "CHANGE how you take these medications", "New medications".
+const GROUP = /^(start|stop|change|continue|ask|resume|hold)\b[^.:\d]*\b(medications?|medicines?)\s*:?$/i;
+const GROUP_STATUS = { start: 'start', new: 'start', stop: 'stop', stopped: 'stop', discontinue: 'stop', discontinued: 'stop', change: 'changed', changed: 'changed', continue: 'continue', ask: 'ask', resume: 'resume', hold: 'hold' };
 
 export function isHeading(line) {
   const t = line.trim();
   if (!t || t.length > 70 || /^[-•*]/.test(t)) return false;
   const letters = t.replace(/[^A-Za-z]/g, '');
   if (letters.length < 3) return false;
+  if (GROUP.test(t)) return true;
+  const known = HEADINGS.some(([, re]) => re.test(t));
+  // A medicine line in capitals ("NEW: LASIX 40 MG DAILY") is not a heading.
+  if (STRENGTH.test(t) || STATUS.test(t) || (!known && /\d/.test(t))) return false;
   const upper = letters.replace(/[^A-Z]/g, '').length / letters.length;
-  return upper > 0.85 || (/:$/.test(t) && HEADINGS.some(([, re]) => re.test(t)));
+  if (upper > 0.85) return true;
+  if (!known) return false;
+  if (/:$/.test(t)) return true;
+  // No colon: "Follow-up Information", "Wound Care", "Call your doctor if"
+  const words = t.split(/\s+/);
+  const title = words.length <= 5 && !/[.!?,;]$/.test(t) && !/\d/.test(t) && words.every((w) => w.length < 4 || /^[A-Z]/.test(w));
+  return title || /\sif$/i.test(t);
 }
 
 export function headingKind(line) {
+  if (GROUP.test(line.trim())) return 'meds';
   for (const [kind, re] of HEADINGS) if (re.test(line)) return kind;
   return 'other';
+}
+
+function groupStatus(title) {
+  if (!/medications?|medicines?/i.test(title)) return '';
+  const m = title.match(/\b(start|new|stop|stopped|discontinued?|changed?|continue|ask|resume|hold)\b/i);
+  return m ? GROUP_STATUS[m[1].toLowerCase()] : '';
 }
 
 export function sectionsOf(text) {
@@ -33,7 +54,8 @@ export function sectionsOf(text) {
     const t = raw.trim();
     if (!t) return;
     if (isHeading(t) && (headingKind(t) !== 'other' || sections.length > 1)) {
-      sections.push({ kind: headingKind(t), title: t.replace(/:$/, ''), lines: [] });
+      const kind = headingKind(t), title = t.replace(/:$/, '');
+      sections.push({ kind, title, lines: [], status: kind === 'meds' ? groupStatus(title) : '' });
       return;
     }
     sections[sections.length - 1].lines.push({ text: t.replace(/^[-•*]\s*/, ''), n: n + 1 });
@@ -77,11 +99,11 @@ const UNIT = /^(tablets?|tabs?|capsules?|caps?|puffs?|drops?|patch(?:es)?|sprays
 const VERB = String.raw`(?:take|use|inhale|inject|apply|chew|dissolve|place|insert|instill|give|spray)`;
 const MEASURE = { ml: 'mL', mg: 'mg', mcg: 'mcg', g: 'g', meq: 'mEq' };
 
-export function parseMed(line) {
+export function parseMed(line, groupStatus = '') {
   const text = line.text ?? line;
   let rest = text.trim();
   const st = rest.match(STATUS);
-  const status = st ? ({ CHANGE: 'changed' }[st[1].toUpperCase()] || st[1].toLowerCase()) : 'take';
+  const status = st ? ({ CHANGE: 'changed' }[st[1].toUpperCase()] || st[1].toLowerCase()) : groupStatus || 'take';
   if (st) rest = rest.slice(st[0].length);
 
   const sm = rest.match(STRENGTH);
@@ -196,11 +218,24 @@ export function parseInstructions(text) {
   const info = headerInfo(text);
   const sections = sectionsOf(text);
   const plan = { info, meds: [], followups: [], er: [], call: [], rules: [], callPhone: '', unread: [] };
+  const instruction = new RegExp(String.raw`^${VERB}\b`, 'i');
   for (const s of sections) {
+    let last = null; // the medicine above, in this section
     for (const line of s.lines) {
       if (s.kind === 'meds') {
-        const m = parseMed(line);
-        if (m.name) plan.meds.push(m); else plan.unread.push(line);
+        // A medicine written over several lines, as after-visit summaries do:
+        //   furosemide 40 MG tablet / Commonly known as: LASIX / Take 1 tablet by mouth daily.
+        const known = line.text.match(/^(?:commonly known as|brand name)\s*:\s*(.+)$/i);
+        if (last && known) { last.brand ||= known[1].trim(); continue; }
+        if (last && /^what changed\s*:/i.test(line.text)) { last.note ||= line.text; continue; }
+        if (last && instruction.test(line.text) && !last.dose && !last.freq && !last.prn) {
+          const { brand, note } = last;
+          Object.assign(last, parseMed({ text: `${last.source} ${line.text}`, n: last.line }, s.status));
+          last.brand ||= brand; last.note ||= note;
+          continue;
+        }
+        const m = parseMed(line, s.status);
+        if (m.name && !instruction.test(m.name)) plan.meds.push(last = m); else plan.unread.push(line);
       } else if (s.kind === 'followup') plan.followups.push(parseFollowup(line, info.discharged));
       else if (s.kind === 'er') plan.er.push({ text: line.text, line: line.n });
       else if (s.kind === 'call') plan.call.push({ text: line.text, line: line.n });
@@ -209,6 +244,15 @@ export function parseInstructions(text) {
       } else if (s.kind !== 'header') plan.unread.push(line);
     }
     if (s.kind === 'call') plan.callPhone = (s.title.match(PHONE) || [])[1] || plan.callPhone;
+  }
+  // No medicines heading at all: read lines like "Lisinopril 10 mg - take 1 tablet daily" anyway.
+  if (!sections.some((s) => s.kind === 'meds')) {
+    const take = new RegExp(String.raw`\b${VERB}\b`, 'i');
+    for (const line of sections[0].lines) {
+      if (!STRENGTH.test(line.text) || !(frequency(line.text) || take.test(line.text))) continue;
+      const m = parseMed(line);
+      if (m.name && !instruction.test(m.name)) plan.meds.push(m);
+    }
   }
   return plan;
 }
