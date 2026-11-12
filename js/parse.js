@@ -12,8 +12,8 @@ const HEADINGS = [
   ['weights', /WEIGHT/i],
 ];
 // After-visit summaries group medicines: "STOP taking these medications",
-// "CHANGE how you take these medications", "New medications".
-const GROUP = /^(start|stop|change|continue|ask|resume|hold)\b[^.:\d]*\b(medications?|medicines?)\s*:?$/i;
+// "CHANGE how you take these medications". ("Stop taking herbal medicines" is an instruction, not a group.)
+const GROUP = /^(start|stop|change|continue|ask|resume|hold)\b[^.:\d]*\bthese (medications|medicines)\s*:?$/i;
 const GROUP_STATUS = { start: 'start', new: 'start', stop: 'stop', stopped: 'stop', discontinue: 'stop', discontinued: 'stop', change: 'changed', changed: 'changed', continue: 'continue', ask: 'ask', resume: 'resume', hold: 'hold' };
 
 export function isHeading(line) {

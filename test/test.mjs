@@ -142,6 +142,8 @@ test('lines in capitals, and no headings at all', () => {
   assert.deepEqual(caps.meds.map((m) => [m.status, m.name]), [['new', 'FUROSEMIDE'], ['stop', 'ASPIRIN']], 'medicine lines are not headings');
   const bare = parseInstructions('Lisinopril 10 mg - take 1 tablet daily\nMetformin 500 mg - take 1 tablet twice a day');
   assert.deepEqual(bare.meds.map((m) => [m.name, timesFor(m).length]), [['Lisinopril', 1], ['Metformin', 2]]);
+  const rule = parseInstructions('ACTIVITY\nStop taking herbal medicines\nNo driving for 1 week.');
+  assert.equal(rule.rules.length, 2, 'an instruction that mentions medicines is not a heading');
 });
 
 test('no medicine drops out of the plan', () => {
