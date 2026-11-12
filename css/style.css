@@ -139,8 +139,8 @@ select, input[type=password] { padding: 8px 10px; }
 .lines div.hit { background: #FFF3BF; }
 .translation { white-space: pre-wrap; background: #FCFBF8; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; }
 
-.how { padding: 56px 0 12px; }
-.how h2 { font-size: 30px; }
+section.how { padding: 56px 0 12px; }
+section.how h2 { font-size: 30px; }
 .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 18px; }
 .three h3 { font-size: 20px; }
 .three p { color: var(--ink-2); }
@@ -152,7 +152,7 @@ select, input[type=password] { padding: 8px 10px; }
   .slot { grid-template-columns: 86px 1fr; }
 }
 @media print {
-  .top, .hero, .input, .how, .foot, .plan-actions, .src, .source, .reading, .no-print { display: none !important; }
+  .top, .hero, .input, section.how, .foot, .plan-actions, .src, .source, .reading, .no-print { display: none !important; }
   body { background: #fff; font-size: 12.5px; }
   main { padding: 0; }
   .plan { padding: 0; }
