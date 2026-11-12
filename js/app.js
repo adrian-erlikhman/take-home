@@ -22,11 +22,14 @@ function make(text) {
   state.plan = parseInstructions(text);
   if (!state.plan.meds.length && !state.plan.followups.length && !state.plan.er.length && !state.plan.call.length && !state.plan.rules.length) {
     $('#plan').hidden = true;
-    return status('No sections found. Keep the headings, like “Medications” and “Call your doctor if”, or try Claude below.', true);
+    status('No sections found. Keep the headings, like “Medications” and “Call your doctor if”, or try Claude below.', true);
+    return false;
   }
   status('');
   render();
   $('#plan').scrollIntoView({ behavior: 'smooth' });
+  $('#planTitle').focus({ preventScroll: true }); // keyboard and screen reader users start at the plan
+  return true;
 }
 
 function render() {
@@ -51,7 +54,7 @@ function render() {
 
   $('#plan').innerHTML = `
     <div class="plan-head">
-      <div><h2>Your plan at home</h2>
+      <div><h2 id="planTitle" tabindex="-1">Your plan at home</h2>
         <div class="who">${esc([p.info.patient, p.info.reason, day0 ? `went home ${fmt(day0)}` : ''].filter(Boolean).join(' · '))}</div>
         ${day0 && !state.went ? '' : `<label class="field inline went">${state.went ? 'Day you went home:' : 'No discharge date found. To count dates, add the day you went home:'} <input type="date" id="went" value="${state.went ? state.went.toISOString().slice(0, 10) : ''}"></label>`}</div>
       <div class="plan-actions">
@@ -99,7 +102,7 @@ function render() {
       <button class="btn small" data-act="translate" ${state.key ? '' : 'disabled title="Add your API key under Use Claude first"'}>Translate</button></div>
       <div id="translation"></div>
     </article>
-    <details class="source no-print"><summary>Your papers, line by line</summary><div class="lines">${state.text.split('\n').map((l, i) => `<div id="L${i + 1}"><span>${i + 1}</span>${esc(l)}</div>`).join('')}</div></details>`;
+    <details class="source no-print"><summary>Your papers, line by line</summary><div class="lines">${state.text.split('\n').map((l, i) => `<div id="L${i + 1}" tabindex="-1"><span>${i + 1}</span>${esc(l)}</div>`).join('')}</div></details>`;
   $('#plan').hidden = false;
 }
 
@@ -133,7 +136,7 @@ document.addEventListener('click', async (e) => {
   if (b.dataset.line) {
     const d = $('.source'); d.open = true;
     document.querySelectorAll('.lines .hit').forEach((x) => x.classList.remove('hit'));
-    const row = document.getElementById('L' + b.dataset.line); row.classList.add('hit'); row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const row = document.getElementById('L' + b.dataset.line); row.classList.add('hit'); row.scrollIntoView({ block: 'center', behavior: 'smooth' }); row.focus({ preventScroll: true });
   }
   if (b.dataset.act === 'print') window.print();
   if (b.dataset.act === 'ics') download('take-home-plan.ics', icsFor(state.plan, null, state.prefs), 'text/calendar');

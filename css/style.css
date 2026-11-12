@@ -70,7 +70,9 @@ select, input[type=password] { padding: 8px 10px; }
 .field.inline { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; color: var(--ink-2); }
 .went { margin-top: 10px; flex-wrap: wrap; font-size: 14px; }
 .went input { font: 14px var(--sans); padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: #FCFBF8; color: var(--ink); }
-.file input { display: none; }
+.file { position: relative; }
+.file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.file:has(input:focus-visible) { outline: 3px solid #2563eb; outline-offset: 2px; }
 .status { color: var(--muted); font-size: 14px; }
 .status.err { color: var(--red); }
 .claude { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
@@ -139,6 +141,7 @@ select, input[type=password] { padding: 8px 10px; }
 .lines div { padding: 0 14px; white-space: pre-wrap; }
 .lines div span { display: inline-block; width: 34px; color: #A9A396; user-select: none; }
 .lines div.hit { background: #FFF3BF; }
+#planTitle:focus, .lines div:focus { outline: none; } /* focus targets, not controls */
 .translation { white-space: pre-wrap; background: #FCFBF8; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; }
 
 section.how { padding: 56px 0 12px; }

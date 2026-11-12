@@ -40,7 +40,7 @@
     </figure>
   </section>
 
-  <section id="plan" class="plan" hidden aria-live="polite"></section>
+  <section id="plan" class="plan" hidden aria-labelledby="planTitle"></section>
 
   <section id="input" class="input card">
     <h2>Your discharge papers</h2>
@@ -48,7 +48,7 @@
     <textarea id="letter" rows="14" spellcheck="false" placeholder="YOUR MEDICATIONS&#10;NEW: Furosemide 40 mg tablet - Take 1 tablet by mouth once daily in the morning.&#10;…"></textarea>
     <div class="row">
       <button class="btn primary" id="make">Make my plan</button>
-      <label class="btn file">Load a PDF, .txt or photo<input type="file" id="file" accept=".pdf,.txt,image/jpeg,image/png,image/webp" hidden></label>
+      <label class="btn file">Load a PDF, .txt or photo<input type="file" id="file" accept=".pdf,.txt,image/jpeg,image/png,image/webp"></label>
       <label class="field inline">I wake up at <select id="wake"></select></label>
       <label class="field inline">and go to bed at <select id="bed"></select></label>
       <span class="status" id="status" role="status"></span>
