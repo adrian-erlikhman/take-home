@@ -46,11 +46,20 @@ export const clock = (h) => {
   return `${hh}:00 ${h % 24 < 12 ? 'AM' : 'PM'}`.replace('12:00 AM', '12:00 midnight').replace('12:00 PM', '12:00 noon');
 };
 
+// 0.5 prints as 1/2 and 1000 as 1,000, the way papers write them.
+export function amount(n) {
+  const whole = Math.floor(n), part = { 0.25: '1/4', 0.5: '1/2', 0.75: '3/4' }[+(n - whole).toFixed(2)];
+  if (part) return whole ? `${whole} ${part}` : part;
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+const COUNTED = /^(tablet|tab|capsule|cap|puff|drop|patch|spray|teaspoon|tablespoon|unit|dose|packet|suppository|lozenge)$/;
+export const units = (unit, n) => (n > 1 && COUNTED.test(unit) ? (unit === 'patch' ? 'patches' : unit === 'suppository' ? 'suppositories' : `${unit}s`) : unit);
+
 export function doseText(m) {
   if (!m.dose) return m.strength;
-  const n = m.dose.min === m.dose.max ? `${m.dose.min}` : `${m.dose.min} to ${m.dose.max}`;
-  const u = m.dose.unit ? ` ${m.dose.unit}${m.dose.max > 1 ? 's' : ''}` : '';
-  return `${n}${u}${m.strength ? ` (${m.strength})` : ''}`;
+  const n = m.dose.min === m.dose.max ? amount(m.dose.min) : `${amount(m.dose.min)} to ${amount(m.dose.max)}`;
+  const u = m.dose.unit ? ` ${units(m.dose.unit, m.dose.max)}` : '';
+  return `${n}${u}${m.strength && m.strength !== n + u ? ` (${m.strength})` : ''}`;
 }
 
 // ---------- questions for the pharmacist ----------

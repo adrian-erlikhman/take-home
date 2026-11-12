@@ -58,9 +58,24 @@ export function toDate(s) {
 }
 
 // ---------- medications ----------
+// Amounts as papers write them: 2, 0.5, .5, 1,000, 1/2, 1 1/2, one, half.
+const N = String.raw`(?:\d+\s+1\/2|\d+\/\d+|\d{1,3}(?:,\d{3})+(?!\d)|\d*\.\d+|\d+|(?:one-half|one half|a half|half|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fourteen)(?![a-z]))`;
+const WORDS = { 'one-half': 0.5, 'one half': 0.5, 'a half': 0.5, half: 0.5, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, fourteen: 14 };
+export function num(s) {
+  s = String(s).toLowerCase().trim();
+  if (s in WORDS) return WORDS[s];
+  const m = s.match(/^(?:(\d+)\s+)?(\d+)\/(\d+)$/);
+  if (m) return (+m[1] || 0) + +m[2] / +m[3];
+  return +s.replace(/,/g, '');
+}
+
 const STATUS = /^(NEW|CHANGED?|CONTINUE|STOP|START|RESUME|HOLD)\s*:\s*/i;
-const STRENGTH = /(\d+(?:\.\d+)?(?:\s*[-/]\s*\d+(?:\.\d+)?)?)\s*(mg|mcg|g|mEq|units?|mL|%)(?![a-z])/i;
+// 40 mg, 5-325 mg, .6 mg, 1,000 mg, and a concentration: 100 units/mL, 40 mg/0.4 mL, 90 mcg/actuation
+const STRENGTH = /((?:\d{1,3}(?:,\d{3})+|\d*\.\d+|\d+)(?:\s*[-/]\s*(?:\d*\.\d+|\d+))?)\s*(mg|mcg|g|mEq|units?|mL|%)(?![a-z])(?:\s*\/\s*(\d*\.?\d+\s*)?(mL|actuation|spray|puff|dose|hr|hour)\b)?/i;
 const FORMS = /\b(tablets?|capsules?|puffs?|drops?|patch(?:es)?|sprays?|teaspoons?|mL)\b/i;
+const UNIT = /^(tablets?|tabs?|capsules?|caps?|puffs?|drops?|patch(?:es)?|sprays?|teaspoons?|tablespoons?|units?|doses?|packets?|suppositor(?:y|ies)|lozenges?|mL|mg|mcg|g|mEq)$/i;
+const VERB = String.raw`(?:take|use|inhale|inject|apply|chew|dissolve|place|insert|instill|give|spray)`;
+const MEASURE = { ml: 'mL', mg: 'mg', mcg: 'mcg', g: 'g', meq: 'mEq' };
 
 export function parseMed(line) {
   const text = line.text ?? line;
@@ -69,37 +84,49 @@ export function parseMed(line) {
   const status = st ? ({ CHANGE: 'changed' }[st[1].toUpperCase()] || st[1].toLowerCase()) : 'take';
   if (st) rest = rest.slice(st[0].length);
 
-  const brand = (rest.match(/\(([^)]+)\)/) || [])[1] || '';
   const sm = rest.match(STRENGTH);
-  let name = (sm ? rest.slice(0, sm.index) : rest.split(/\s[-–]\s|[.(]/)[0]).replace(/\([^)]*\)/g, '').replace(/\s[-–]\s.*$/, '').trim();
+  const head = sm ? rest.slice(0, sm.index) : rest.split(/\s[-–]\s|\.\s/)[0];
+  const brand = (head.match(/\(([^)]+)\)/) || [])[1] || '';
+  let name = (sm ? head : rest.split(/\s[-–]\s|[.(]/)[0]).replace(/\([^)]*\)/g, '').replace(/\s[-–]\s.*$/, '').trim();
   name = name.replace(/\s+(tablet|capsule)s?$/i, '').trim();
-  const strength = sm ? `${sm[1].replace(/\s+/g, '')} ${sm[2]}` : '';
+  // ".6 mg" is shown as "0.6 mg": the same number, harder to misread as 6
+  const zero = (s) => s.replace(/(^|[^\d])\.(\d)/g, '$10.$2');
+  const strength = sm ? `${zero(sm[1].replace(/\s+/g, ''))} ${MEASURE[sm[2].toLowerCase()] || sm[2].toLowerCase()}${sm[4] ? `/${sm[3] ? `${zero(sm[3].trim())} ` : ''}${MEASURE[sm[4].toLowerCase()] || sm[4]}` : ''}` : '';
 
   const how = sm ? rest.slice(sm.index + sm[0].length) : rest.slice(name.length);
-  const count = how.match(/take\s+(\d+(?:\.\d+)?)(?:\s*(?:to|-|or)\s*(\d+(?:\.\d+)?))?\s*([a-z]+)?/i);
-  const form = (how.match(FORMS) || [])[1] || (count && FORMS.test(count[3] || '') ? count[3] : '');
+  const count = how.match(new RegExp(String.raw`\b${VERB}\s+(${N})(?:\s*(?:to|-|or)\s*(${N}))?\s*(?:an?\s+)?([a-z]+)?`, 'i'));
+  const said = count?.[3] || '';
+  const form = UNIT.test(said) ? said : (how.match(FORMS) || [])[1] || '';
+  // "1 tablet in the morning and 2 at bedtime": one amount can't stand for every dose
+  const amounts = new Set([...how.replace(/(?:no|not)\s+(?:take\s+)?more than[^.;]*/gi, '')
+    .matchAll(new RegExp(String.raw`(?<![\d/.,-])(${N})\s+(?:tablets?|tabs?|capsules?|puffs?|units?|drops?|sprays?)\b`, 'gi'))].map((m) => num(m[1])));
   const prn = /\bas needed\b|\bPRN\b/i.test(how);
   const reason = (how.match(/as needed for ([^.;]+)/i) || [])[1] || '';
-  const maxm = how.match(/(?:no|not)\s+(?:take\s+)?more than\s+(\d+)\s+([a-z]+)\s+(?:in|per|a|each)\s+(24 hours|day)/i);
-  const dur = how.match(/\bfor\s+(\d+)\s+(days?|weeks?)\b/i);
+  const maxm = how.match(new RegExp(String.raw`(?:no|not)\s+(?:take\s+)?more than\s+(${N})\s+([a-z]+)\s+(?:in|per|a|each)\s+(24 hours|day)`, 'i'));
+  const dur = how.match(new RegExp(String.raw`\bfor\s+(?:the next\s+|another\s+)?(${N})\s+(days?|weeks?)\b`, 'i'));
   const whileTaking = (how.match(/\bwhile (?:you are )?taking ([\w-]+)/i) || [])[1] || '';
+  const mixed = amounts.size > 1;
 
   return {
     status, name, brand, strength,
-    dose: count ? { min: +count[1], max: count[2] ? +count[2] : +count[1], unit: singular(form || count[3] || '') } : null,
+    dose: count && !mixed ? { min: num(count[1]), max: num(count[2] || count[1]), unit: singular(form) } : null,
     route: /\bby mouth\b|\bPO\b/i.test(how) ? 'by mouth' : '',
     freq: frequency(how),
     prn, reason: reason.trim(),
-    max: maxm ? { n: +maxm[1], unit: singular(maxm[2]), per: '24 hours' } : null,
-    days: dur ? +dur[1] * (/week/i.test(dur[2]) ? 7 : 1) : null,
+    max: maxm ? { n: num(maxm[1]), unit: singular(maxm[2]), per: '24 hours' } : null,
+    days: dur ? num(dur[1]) * (/week/i.test(dur[2]) ? 7 : 1) : null,
     whileTaking,
     withFood: /with (food|meals?)/i.test(how),
-    note: (how.match(/(dose (?:increased|decreased|changed)[^.]*\.?|finish all[^.]*\.?)/i) || [])[1] || '',
+    note: (how.match(/(dose (?:increased|decreased|changed)[^.]*\.?|finish all[^.]*\.?)/i) || [])[1] || (mixed ? 'Different amounts at different times: check your papers.' : ''),
     source: text, line: line.n ?? null,
   };
 }
 
-function singular(w) { w = (w || '').toLowerCase(); return /patches$/.test(w) ? 'patch' : w.replace(/s$/, ''); }
+function singular(w) {
+  const l = (w || '').toLowerCase();
+  if (MEASURE[l]) return MEASURE[l];
+  return /patches$/.test(l) ? 'patch' : /ies$/.test(l) ? l.replace(/ies$/, 'y') : l.replace(/s$/, '');
+}
 
 const COUNT = { once: 1, one: 1, twice: 2, two: 2, three: 3, four: 4 };
 const BEDTIME = /\b(at bedtime|QHS|nightly|every night|at night)\b/i;

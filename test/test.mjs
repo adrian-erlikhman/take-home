@@ -76,6 +76,21 @@ test('dose text', () => {
   assert.equal(doseText(heart.meds[0]), '1 tablet (40 mg)');
 });
 
+test('amounts as papers write them', () => {
+  const d = (s) => doseText(parseMed(s));
+  assert.equal(d('Warfarin 5 mg - Take 1/2 tablet by mouth daily.'), '1/2 tablet (5 mg)', 'not 1 tablet');
+  assert.equal(d('Warfarin 5 mg - Take half a tablet by mouth daily.'), '1/2 tablet (5 mg)');
+  assert.equal(d('Furosemide 40 mg - Take one tablet by mouth daily.'), '1 tablet (40 mg)');
+  assert.equal(d('Colchicine .6 mg - Take 1 tablet daily.'), '1 tablet (0.6 mg)', 'not 6 mg');
+  assert.equal(d('Acetaminophen 1,000 mg - Take 1,000 mg every 8 hours as needed.'), '1,000 mg');
+  assert.equal(d('Insulin glargine 100 units/mL - Inject 10 units under the skin at bedtime.'), '10 units (100 units/mL)', 'the dose, not the concentration');
+  assert.equal(d('Albuterol 90 mcg/actuation inhaler - Inhale 2 puffs every 4 hours as needed.'), '2 puffs (90 mcg/actuation)');
+  assert.equal(d('Nicotine 21 mg/24 hr patch - Apply 1 patch daily.'), '1 patch (21 mg/24 hr)');
+  const mixed = parseMed('Gabapentin 300 mg - Take 1 capsule in the morning and 2 capsules at bedtime.');
+  assert.equal(mixed.dose, null, 'one amount cannot stand for both doses');
+  assert.deepEqual(timesFor(mixed), [8, 22]);
+});
+
 test('follow-ups get dates', () => {
   assert.deepEqual(heart.followups.map((f) => [f.who, iso(f.date), f.by]), [
     ['Cardiology clinic with Dr. Patel', '2026-11-17', false], ['Blood test (BMP)', '2026-11-17', false], ['Primary care with Dr. Nguyen', '2026-11-24', true]]);

@@ -1,5 +1,5 @@
 import { parseInstructions } from './parse.js';
-import { daySchedule, clock, doseText, checksFor, grade, icsFor, planText, PREFS, timesFor, everyLabel, notDaily } from './plan.js';
+import { daySchedule, clock, doseText, checksFor, grade, icsFor, planText, PREFS, timesFor, everyLabel, notDaily, amount, units } from './plan.js';
 import { glossaryFor } from './glossary.js';
 import { MODELS, readWithClaude, translate, askPapers, transcribePhoto } from './ai.js';
 import { SAMPLES } from './samples.js';
@@ -65,7 +65,7 @@ function render() {
             <label class="med"><input type="checkbox"><span><span class="name">${esc(m.name)}</span>${statusTag(m)}
             <span class="how"> · ${esc(doseText(m))}</span>${src(m.line)}<br><span class="how">${esc(medHow(m))}</span></span></label>`).join('')}</div></div>`).join('') || '<p class="sub">No daily medicines found.</p>'}
           ${other.length ? `<div class="prn"><h4>Not every day</h4><ul>${other.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}, ${everyLabel(m.freq.everyDays)} at ${timesFor(m, state.prefs).map(clock).join(' and ')}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
-          ${prn.length ? `<div class="prn"><h4>Only if you need it</h4><ul>${prn.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}${m.reason ? ` for ${esc(m.reason)}` : ''}${m.freq?.every ? `, no more often than every ${m.freq.every} hours` : ''}${m.max ? `, at most ${m.max.n} ${m.max.unit}s in 24 hours` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
+          ${prn.length ? `<div class="prn"><h4>Only if you need it</h4><ul>${prn.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}${m.reason ? ` for ${esc(m.reason)}` : ''}${m.freq?.every ? `, no more often than every ${m.freq.every} hours` : ''}${m.max ? `, at most ${amount(m.max.n)} ${esc(units(m.max.unit, m.max.n))} in 24 hours` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${stopped.length ? `<div class="stopped"><h4>Stop taking</h4><ul>${stopped.map((m) => `<li><b>${esc(m.name)}</b>${m.brand ? ` (${esc(m.brand)})` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
         </article>
         ${asks.length ? `<article class="card asks"><h3>Ask your pharmacist</h3><p class="sub">Take Home never changes a dose. These are questions to bring.</p><ul>${asks.map((a) => `<li class="${a.level}"><b>${esc(a.title)}</b>${esc(a.text)}${a.lines.filter(Boolean).map(src).join('')}</li>`).join('')}</ul></article>` : ''}
