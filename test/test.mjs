@@ -162,15 +162,19 @@ test('Claude lines must be in the letter', () => {
     { section: 'medications', line: 'NEW: Furosemide (Lasix) 40 mg tablet - Take 1 tablet by mouth once daily in the morning.' },
     { section: 'medications', line: 'NEW: Furosemide (Lasix) 80 mg tablet - Take 1 tablet by mouth once daily.' },
     { section: 'medications', line: 'Aspirin 81 mg daily' },
+    { section: 'medications', line: 'NEW: Furosemide (Lasix) 40 mg tablet - Take 1 tablet by mouth twice daily.' },
+    { section: 'diet', line: 'Low sodium diet: less than 2' },
+    { section: 'call_911', line: 'You faint' },
   ], src);
-  assert.equal(kept.length, 1);
-  assert.equal(dropped.length, 2);
+  assert.deepEqual(kept.map((i) => i.line.slice(0, 22)), ['NEW: Furosemide (Lasix', 'You faint']);
+  assert.equal(dropped.length, 4, 'a changed word or a cut-off number is dropped too');
 });
 
 test('translations keep every number', () => {
   assert.ok(sameNumbers('8:00 AM: Furosemide, 1 tablet (40 mg).', '8:00 AM: Furosemida, 1 tableta (40 mg).'));
   assert.ok(!sameNumbers('8:00 AM: Furosemide, 1 tablet (40 mg).', '8:00 AM: Furosemida, 1 tableta (4 mg).'));
   assert.deepEqual(numbersIn('2,000 mg and 101.5 F'), ['2000', '101.5']);
+  assert.ok(!sameNumbers('Furosemide, 40 mg.\nLisinopril, 10 mg.', 'Furosemida, 10 mg.\nLisinopril, 40 mg.'), 'numbers swapped between medicines');
 });
 
 test('answers must quote the papers', () => {
@@ -179,6 +183,9 @@ test('answers must quote the papers', () => {
   assert.ok(!checkAnswer({ answer: 'Yes, after 3 days.', quote: 'You may drive after 3 days.' }, src).ok, 'invented quote');
   assert.ok(!checkAnswer({ answer: 'Take 3 tablets every 6 hours.', quote: 'Take 2 tablets PO every 6 hours as needed for mild pain.' }, src).ok, 'number not in papers');
   assert.ok(!checkAnswer({ answer: 'NOT IN PAPERS', quote: '' }, src).ok);
+  assert.ok(!checkAnswer({ answer: 'Yes, you can.', quote: '...' }, src).ok, 'a quote with no words');
+  assert.ok(!checkAnswer({ answer: 'Yes, you can.', quote: 'Do not' }, src).ok, 'two words prove nothing');
+  assert.ok(checkAnswer({ answer: 'Go to the emergency room.', quote: 'Trouble breathing' }, src).ok, 'a whole short line is fine');
 });
 
 console.log(`${n} tests passed`);

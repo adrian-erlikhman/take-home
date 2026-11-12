@@ -1,8 +1,8 @@
 // Optional: Claude, with the user's own API key, for two jobs the rules can't do.
-// 1. Read a messy or scanned letter into lines. Every medicine and every number
-//    Claude returns must appear in the letter, or that item is dropped.
-// 2. Translate the plan. Every number in the plan must appear in the
-//    translation and no new ones may appear, or the translation is rejected.
+// 1. Sort the lines of a letter with an unusual layout. Every line Claude
+//    returns must appear in the letter word for word, or it is dropped.
+// 2. Translate the plan. Each line of the translation must carry the same
+//    numbers as that line of the plan, or the translation is rejected.
 // Claude never decides a dose or a time; the page's own rules do that.
 
 export const MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'];
@@ -19,16 +19,20 @@ async function ask({ key, model, system, user, max = 4000 }) {
 }
 
 export const numbersIn = (s) => (String(s).match(/\d+(?:[.,]\d+)*/g) || []).map((n) => n.replace(/,/g, ''));
-const squash = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+// Case, spacing and punctuation don't count; words and numbers do. "1,000" and
+// "1.5" stay whole, so "1" or "15" can't pass for them.
+const squash = (s) => String(s).toLowerCase().replace(/(\d)[.,](?=\d)/g, '$1_').replace(/[^a-z0-9_]+/g, ' ').trim();
+// Whole words only: "take 1 tablet" is not inside "take 1 tablets".
+const within = (part, whole) => !!part && ` ${whole} `.includes(` ${part} `);
 
-// Keep only items whose words and numbers are really in the source text.
+// Keep only items whose whole line, word for word, is in the source text.
 export function verifyItems(items, source) {
   const hay = squash(source);
   const nums = new Set(numbersIn(source));
   const kept = [], dropped = [];
   for (const it of items) {
     const text = it.line || '';
-    const okText = text && hay.includes(squash(text).split(' ').slice(0, 3).join(' '));
+    const okText = within(squash(text), hay);
     const okNums = numbersIn(text).every((n) => nums.has(n));
     (okText && okNums ? kept : dropped).push(it);
   }
@@ -43,10 +47,13 @@ export async function readWithClaude({ key, model, text }) {
   return verifyItems(json.items || [], text);
 }
 
-// The translation must carry exactly the same numbers as the plan.
+// The translation must carry exactly the same numbers as the plan, line by
+// line, so a number can't move from one medicine to another.
 export function sameNumbers(a, b) {
-  const x = numbersIn(a).sort().join(' '), y = numbersIn(b).sort().join(' ');
-  return x === y;
+  const lines = (s) => String(s).split('\n').filter((l) => l.trim());
+  const key = (l) => numbersIn(l).sort().join(' ');
+  const x = lines(a), y = lines(b);
+  return x.length === y.length && x.every((l, i) => key(l) === key(y[i]));
 }
 
 export async function translate({ key, model, text, language }) {
@@ -62,8 +69,11 @@ export async function translate({ key, model, text, language }) {
 // line doesn't, the answer isn't shown.
 export function checkAnswer(ans, source) {
   if (!ans || /NOT IN PAPERS/i.test(ans.answer || '')) return { ok: false, why: "Your papers don't say. Ask your care team or pharmacist." };
-  const hay = squash(source);
-  const quoteOk = ans.quote && hay.includes(squash(ans.quote));
+  // The quote has to be a real piece of the papers: three words or more, or a
+  // whole line (like "You faint"). An empty or one-word quote proves nothing.
+  const q = squash(ans.quote || '');
+  const wholeLine = String(source).split('\n').some((l) => squash(l) === q);
+  const quoteOk = within(q, squash(source)) && (q.split(' ').length >= 3 || wholeLine);
   const nums = new Set(numbersIn(ans.quote));
   const numsOk = numbersIn(ans.answer).every((n) => nums.has(n));
   if (!quoteOk || !numsOk) return { ok: false, why: "Claude's answer couldn't be matched to your papers word for word, so it isn't shown. Ask your care team." };
