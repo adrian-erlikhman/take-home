@@ -156,6 +156,10 @@ section.how h2 { font-size: 30px; }
   .hero { padding-top: 40px; gap: 32px; }
   .slot { grid-template-columns: 86px 1fr; }
 }
+@media (max-width: 600px) {
+  .gloss { grid-template-columns: 1fr; gap: 0; }
+  .gloss dd { margin-bottom: 8px; }
+}
 @media print {
   @page { margin: 0.4in; }
   .top, .hero, .input, section.how, .foot, .plan-actions, .src, .source, .reading, .no-print, .words, .went { display: none !important; }
