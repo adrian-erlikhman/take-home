@@ -75,7 +75,7 @@ function render() {
           <div class="appt"><div class="date">${f.date ? `<span class="m">${f.by ? 'By ' : ''}${MONTH[f.date.getUTCMonth()]}</span><span class="d">${f.date.getUTCDate()}</span><span class="m">${DAY[f.date.getUTCDay()]}</span>` : '<span class="m">Date to set</span>'}</div>
           <div><div class="what">${esc(f.who)}</div><div class="when">${f.days != null ? `${f.by ? 'Within' : 'In'} ${f.days % 7 === 0 ? `${f.days / 7} week${f.days > 7 ? 's' : ''}` : `${f.days} days`}` : ''}${f.phone ? ` · call ${esc(f.phone)}${f.toSchedule ? ' to schedule' : ''}` : ''}${src(f.line)}</div></div></div>`).join('')}</article>` : ''}
         ${p.rules.length ? `<article class="card rules"><h3>For now</h3>${dont.length ? `<p class="sub">Don't</p><ul>${dont.map((r) => `<li>${esc(r.text)}${r.until ? ` <span class="until">until ${fmt(r.until)}</span>` : ''}${r.while ? ` <span class="until">while you take ${esc(r.while)}</span>` : ''}${src(r.line)}</li>`).join('')}</ul>` : ''}${dos.length ? `<p class="sub">Do</p><ul>${dos.map((r) => `<li>${esc(r.text)}${r.from ? ` <span class="until">from ${fmt(r.from)}</span>` : ''}${src(r.line)}</li>`).join('')}</ul>` : ''}</article>` : ''}
-        ${gloss.length ? `<article class="card"><h3>Words on your papers</h3><dl class="gloss">${gloss.map((g) => `<dt>${esc(g.term)}</dt><dd>${esc(g.plain)}</dd>`).join('')}</dl></article>` : ''}
+        ${gloss.length ? `<article class="card words"><h3>Words on your papers</h3><dl class="gloss">${gloss.map((g) => `<dt>${esc(g.term)}</dt><dd>${esc(g.plain)}</dd>`).join('')}</dl></article>` : ''}
       </div>
     </div>
     <article class="card no-print" style="margin-top:18px">

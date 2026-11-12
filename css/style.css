@@ -152,14 +152,29 @@ section.how h2 { font-size: 30px; }
   .slot { grid-template-columns: 86px 1fr; }
 }
 @media print {
-  .top, .hero, .input, section.how, .foot, .plan-actions, .src, .source, .reading, .no-print { display: none !important; }
-  body { background: #fff; font-size: 12.5px; }
+  @page { margin: 0.4in; }
+  .top, .hero, .input, section.how, .foot, .plan-actions, .src, .source, .reading, .no-print, .words { display: none !important; }
+  body { background: #fff; font-size: 11px; line-height: 1.35; }
   main { padding: 0; }
   .plan { padding: 0; }
-  .plan-head { margin: 0 0 8px; }
-  .plan-head h2 { font-size: 22px; }
-  .card, .warn { break-inside: avoid; padding: 10px 12px; border-color: #ccc; }
-  .grid { grid-template-columns: 1.1fr 0.9fr; gap: 10px; }
-  .stack { gap: 10px; }
-  .slot { padding: 6px 0; }
+  .plan-head { margin: 0 0 6px; }
+  .plan-head h2 { font-size: 20px; }
+  .plan-head .who { margin-top: 2px; }
+  .card, .warn { break-inside: avoid; padding: 8px 10px; border-color: #ccc; border-radius: 10px; }
+  .card h3, .warn h3 { font-size: 14.5px; margin-bottom: 2px; }
+  .card .sub, .warn .sub { font-size: 10.5px; margin: 0 0 4px; }
+  .grid { grid-template-columns: 1.1fr 0.9fr; gap: 8px; }
+  .stack { gap: 8px; }
+  .slot { grid-template-columns: 64px 1fr; gap: 8px; padding: 4px 0; }
+  .med { gap: 7px; padding: 1px 0; }
+  .med input { width: 13px; height: 13px; margin-top: 1px; }
+  .med .how, .appt .when, .rules .until { font-size: 10.5px; }
+  .tag { font-size: 9px; padding: 1px 5px; }
+  .prn, .stopped { margin-top: 6px; padding: 6px 8px; }
+  .prn h4, .stopped h4 { font-size: 10.5px; margin-bottom: 2px; }
+  .prn li, .stopped li, .warn li, .rules li, .asks li { margin: 2px 0; }
+  .appt { grid-template-columns: 54px 1fr; gap: 8px; padding: 5px 0; }
+  .date { padding: 3px 4px; border-radius: 8px; }
+  .date .d { font-size: 16px; }
+  .date .m { font-size: 9px; }
 }
