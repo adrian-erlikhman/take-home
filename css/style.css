@@ -159,6 +159,8 @@ section.how h2 { font-size: 30px; }
 @media (max-width: 600px) {
   .gloss { grid-template-columns: 1fr; gap: 0; }
   .gloss dd { margin-bottom: 8px; }
+  .reading { flex-wrap: wrap; column-gap: 8px; row-gap: 0; border-radius: 14px; }
+  .reading b { white-space: nowrap; }
 }
 @media print {
   @page { margin: 0.4in; }
