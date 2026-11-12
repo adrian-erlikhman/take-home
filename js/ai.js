@@ -7,15 +7,30 @@
 
 export const MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'];
 
-async function ask({ key, model, system, user, max = 4000 }) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model, max_tokens: max, system, messages: [{ role: 'user', content: user }] }),
-  });
-  if (!r.ok) throw new Error(`Claude returned ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  const j = await r.json();
-  return j.content.map((c) => c.text || '').join('');
+async function call(key, body) {
+  let r;
+  try {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify(body),
+    });
+  } catch { throw new Error("Couldn't reach Claude. Check your internet connection and try again."); }
+  if (!r.ok) {
+    const raw = await r.text();
+    let why = raw.slice(0, 200);
+    try { why = JSON.parse(raw).error.message; } catch { /* keep the raw text */ }
+    throw new Error(r.status === 401 ? "Claude didn't accept that API key. Check it under “Use Claude”." : `Claude returned an error (${r.status}): ${why}`);
+  }
+  return (await r.json()).content.map((c) => c.text || '').join('');
+}
+
+const ask = ({ key, model, system, user, max = 4000 }) => call(key, { model, max_tokens: max, system, messages: [{ role: 'user', content: user }] });
+
+// Claude's JSON reply. If it can't be read, nothing from it is used.
+function jsonIn(out) {
+  try { return JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1)); }
+  catch { throw new Error("Claude's reply wasn't in the expected format, so none of it was used. Try again."); }
 }
 
 export const numbersIn = (s) => (String(s).match(/\d+(?:[.,]\d+)*/g) || []).map((n) => n.replace(/,/g, ''));
@@ -43,7 +58,7 @@ export async function readWithClaude({ key, model, text }) {
   const system = 'You copy hospital discharge instructions into sections. You never add, change, or infer anything. Copy each line exactly as written.';
   const user = `Sort every instruction line from the letter below into one of these sections: medications, followup, call_911, call_doctor, diet, activity, wound, other. Return only JSON: {"items":[{"section":"...","line":"exact text from the letter"}]}. Copy each line word for word, including every number. If a line fits nowhere, use "other".\n\n<letter>\n${text}\n</letter>`;
   const out = await ask({ key, model, system, user });
-  const json = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+  const json = jsonIn(out);
   return verifyItems(json.items || [], text);
 }
 
@@ -84,21 +99,15 @@ export async function askPapers({ key, model, text, question }) {
   const system = 'You answer questions about a patient\'s discharge instructions using only those instructions, in plain language. You never add medical advice, doses or facts that are not in the instructions. If the instructions do not answer the question, the answer is exactly NOT IN PAPERS.';
   const user = `<papers>\n${text}\n</papers>\n\nQuestion: ${question}\n\nReturn only JSON: {"answer":"1 to 3 short sentences","quote":"the line from the papers that answers it, copied word for word"}. If the papers don't answer it, return {"answer":"NOT IN PAPERS","quote":""}.`;
   const out = await ask({ key, model, system, user, max: 800 });
-  const json = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+  const json = jsonIn(out);
   return checkAnswer(json, text);
 }
 
 // A photo of printed papers. The text can't be checked against a source, so the
 // page puts it in the box for the person to compare with their paper first.
 export async function transcribePhoto({ key, model, base64, mediaType }) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model, max_tokens: 4000, messages: [{ role: 'user', content: [
-      { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-      { type: 'text', text: 'Transcribe this page of hospital discharge instructions exactly, line by line, keeping headings on their own lines. Do not fix, summarize or add anything. If a word is unreadable, write [unreadable]. Return only the text.' },
-    ] }] }),
-  });
-  if (!r.ok) throw new Error(`Claude returned ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  return (await r.json()).content.map((c) => c.text || '').join('').trim();
+  return (await call(key, { model, max_tokens: 4000, messages: [{ role: 'user', content: [
+    { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+    { type: 'text', text: 'Transcribe this page of hospital discharge instructions exactly, line by line, keeping headings on their own lines. Do not fix, summarize or add anything. If a word is unreadable, write [unreadable]. Return only the text.' },
+  ] }] })).trim();
 }

@@ -163,9 +163,10 @@ document.addEventListener('click', async (e) => {
       const { kept, dropped } = await readWithClaude({ key: state.key, model: state.model, text: t });
       const H = { medications: 'MEDICATIONS', followup: 'FOLLOW-UP', call_911: 'CALL 911 IF:', call_doctor: 'CALL YOUR DOCTOR IF:', diet: 'DIET', activity: 'ACTIVITY', wound: 'WOUND CARE' };
       const sorted = Object.entries(H).map(([k, h]) => { const ls = kept.filter((i) => i.section === k).map((i) => i.line); return ls.length ? [h, ...ls].join('\n') : ''; }).filter(Boolean).join('\n\n');
-      const head = t.split('\n').slice(0, 6).join('\n');
-      make(head + '\n\n' + sorted);
-      status(`Claude sorted ${kept.length} lines${dropped.length ? `; ${dropped.length} didn't match your letter word for word and were dropped` : ''}.`);
+      // The top of the letter (patient, discharge date), minus lines Claude already sorted, so none show twice.
+      const head = t.split('\n').slice(0, 6).filter((l) => !kept.some((i) => i.line.trim() === l.trim().replace(/^[-•*]\s*/, ''))).join('\n');
+      const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+      if (make(head + '\n\n' + sorted)) status(`Claude sorted ${n(kept.length, 'line', 'lines')}${dropped.length ? `; ${n(dropped.length, "line didn't match your letter word for word and was", "lines didn't match your letter word for word and were")} dropped` : ''}.`);
     } catch (err) { status(err.message, true); }
   }
 });
@@ -181,9 +182,13 @@ $('#file').addEventListener('change', async (e) => {
       $('#letter').value = await transcribePhoto({ key: state.key, model: state.model, base64, mediaType: f.type });
       return status("Claude typed up the photo. Check it against your paper, fix anything that's off, then make your plan.");
     }
-    $('#letter').value = /\.pdf$/i.test(f.name) ? await pdfText(f) : await f.text(); status('Loaded. Check the text, then make your plan.');
+    const text = /\.pdf$/i.test(f.name) ? await pdfText(f) : await f.text();
+    if (!text.trim()) return status("That file has no text in it. If it's a scan, load a photo of the page instead (needs Claude), or type the papers in.", true);
+    $('#letter').value = text;
+    status('Loaded. Check the text, then make your plan.');
   }
   catch (err) { status(`Couldn't read that file (${err.message}).`, true); }
+  finally { e.target.value = ''; } // so the same file can be loaded again
 });
 
 const hours = Array.from({ length: 24 }, (_, h) => h);
