@@ -14,24 +14,32 @@ export function timesFor(med, prefs = PREFS) {
     const start = f.every >= 12 ? wake : 6;
     return Array.from({ length: Math.round(24 / f.every) }, (_, k) => (start + k * f.every) % 24).sort((a, b) => a - b);
   }
-  if (f.when === 'bedtime') return [bed];
-  if (f.when === 'evening') return [18];
-  if (f.perDay === 1) return [wake];
-  if (f.perDay === 2) return [wake, wake + 12 > bed ? bed : wake + 12];
-  if (f.perDay === 3) return med.withFood ? [wake, 12, 18] : [wake, wake + 6, wake + 12];
-  if (f.perDay === 4) return [wake, wake + 4, wake + 8, wake + 12];
+  const n = f.perDay;
+  if (n === 1) return [f.when === 'bedtime' ? bed : f.when === 'evening' ? 18 : wake];
+  if (n === 2 && f.when) return [wake, f.when === 'bedtime' ? bed : 18];
+  if (n === 3 && med.withFood && wake <= 9) return [wake, 12, 18];
+  if (n >= 2 && n <= 4) {
+    // Spread the doses over the waking day: 8, 20 / 8, 14, 20 / 8, 12, 16, 20.
+    const last = Math.min(wake + 12, bed);
+    return Array.from({ length: n }, (_, k) => Math.round(wake + (k * (last - wake)) / (n - 1)));
+  }
   return [];
 }
 
+// Medicines taken every day, by hour. Every-other-day and weekly medicines are
+// listed on their own so they don't look like daily doses.
 export function daySchedule(meds, prefs = PREFS) {
   const slots = new Map();
-  for (const m of meds) for (const h of timesFor(m, prefs)) {
+  for (const m of meds) for (const h of m.freq?.everyDays ? [] : timesFor(m, prefs)) {
     if (!slots.has(h)) slots.set(h, []);
     slots.get(h).push(m);
   }
   return [...slots.entries()].sort((a, b) => order(a[0]) - order(b[0])).map(([hour, meds]) => ({ hour, meds }));
 }
 const order = (h) => (h < 5 ? h + 24 : h); // overnight doses go last
+
+export const everyLabel = (n) => (n === 2 ? 'every other day' : n === 7 ? 'once a week' : `every ${n} days`);
+export const notDaily = (meds) => meds.filter((m) => m.freq?.everyDays && !m.prn && !['stop', 'hold'].includes(m.status));
 
 export const clock = (h) => {
   const hh = ((h + 11) % 12) + 1;
@@ -119,9 +127,10 @@ export function icsFor(plan, start, prefs = PREFS) {
     `DESCRIPTION:${esc(`From your discharge papers: "${f.source}"`)}`, 'END:VEVENT']);
   for (const m of plan.meds) for (const h of timesFor(m, prefs)) {
     const d = start || plan.info.discharged || new Date();
-    const count = m.days || 30;
+    const every = m.freq.everyDays || 1;
+    const count = Math.ceil((m.days || 30) / every);
     ev.push(['BEGIN:VEVENT', `UID:take-home-${uid++}@local`, `DTSTAMP:${stamp}`,
-      `DTSTART:${ymd(d)}T${pad(h)}0000`, `DURATION:PT10M`, `RRULE:FREQ=DAILY;COUNT=${count}`,
+      `DTSTART:${ymd(d)}T${pad(h)}0000`, `DURATION:PT10M`, `RRULE:FREQ=DAILY;${every > 1 ? `INTERVAL=${every};` : ''}COUNT=${count}`,
       `SUMMARY:${esc(`${m.name}: ${doseText(m)}`)}`, `DESCRIPTION:${esc(`From your discharge papers: "${m.source}"`)}`,
       'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(m.name)}`, 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT']);
   }
@@ -132,6 +141,7 @@ export function icsFor(plan, start, prefs = PREFS) {
 export function planText(plan, schedule) {
   const lines = [];
   for (const s of schedule) lines.push(`${clock(s.hour)}: ${s.meds.map((m) => `${m.name}, ${doseText(m)}`).join('; ')}.`);
+  for (const m of notDaily(plan.meds)) lines.push(`${everyLabel(m.freq.everyDays)}: ${m.name}, ${doseText(m)}.`.replace(/^./, (c) => c.toUpperCase()));
   for (const m of plan.meds.filter((m) => m.prn)) lines.push(`Only if you need it: ${m.name}, ${doseText(m)}${m.reason ? ` for ${m.reason}` : ''}.`);
   for (const m of plan.meds.filter((m) => m.status === 'stop')) lines.push(`Stop taking ${m.name}.`);
   for (const w of plan.er) lines.push(`Call 911: ${w.text}.`);

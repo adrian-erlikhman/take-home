@@ -39,6 +39,23 @@ test('frequencies', () => {
   assert.deepEqual(frequency('once daily in the morning'), { perDay: 1, when: 'morning' });
 });
 
+test('more ways to write how often', () => {
+  const t = (s, prefs) => timesFor(parseMed(`X 10 mg - Take 1 tablet ${s}.`), prefs);
+  assert.deepEqual(t('three times daily'), [8, 14, 20]);
+  assert.deepEqual(t('by mouth 2 times a day'), [8, 20]);
+  assert.deepEqual(t('four times daily'), [8, 12, 16, 20]);
+  assert.deepEqual(t('in the morning and at bedtime'), [8, 22], 'two doses, not one');
+  assert.deepEqual(t('with breakfast and dinner'), [8, 18]);
+  assert.deepEqual(t('four times a day', { wake: 12, bed: 22 }), [12, 15, 19, 22], 'doses stay in the waking day');
+  assert.deepEqual(frequency('every 4-6 hours as needed'), { every: 4 });
+  assert.deepEqual(frequency('q4-6h PRN'), { every: 4 });
+  assert.deepEqual(frequency('every other day'), { perDay: 1, everyDays: 2 });
+  assert.deepEqual(frequency('once a week'), { perDay: 1, everyDays: 7 });
+  const weekly = parseInstructions('MEDICATIONS\nAlendronate 70 mg - Take 1 tablet once a week.');
+  assert.equal(daySchedule(weekly.meds).length, 0, 'a weekly medicine is not a daily dose');
+  assert.match(icsFor(weekly), /RRULE:FREQ=DAILY;INTERVAL=7;COUNT=5/);
+});
+
 test('daily times', () => {
   const t = (s) => timesFor(parseMed(s));
   assert.deepEqual(t('X 10 mg - Take 1 tablet by mouth daily.'), [8]);

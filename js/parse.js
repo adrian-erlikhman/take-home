@@ -101,17 +101,35 @@ export function parseMed(line) {
 
 function singular(w) { w = (w || '').toLowerCase(); return /patches$/.test(w) ? 'patch' : w.replace(/s$/, ''); }
 
+const COUNT = { once: 1, one: 1, twice: 2, two: 2, three: 3, four: 4 };
+const BEDTIME = /\b(at bedtime|QHS|nightly|every night|at night)\b/i;
+const EVENING = /\b(in the evening|every evening|QPM|with (?:dinner|supper))\b/i;
+const MORNING = /\b(in the morning|every morning|QAM|(?:with|before) breakfast)\b/i;
+
 export function frequency(s) {
-  const every = s.match(/every\s+(\d+)\s*(?:to\s*\d+\s*)?hours?|\bq\s?(\d+)\s?h\b/i);
-  if (every) return { every: +(every[1] || every[2]) };
-  if (/\b(at bedtime|QHS|nightly|every night)\b/i.test(s)) return { perDay: 1, when: 'bedtime' };
-  if (/\b(four times (a|per|each) day|QID)\b/i.test(s)) return { perDay: 4 };
-  if (/\b(three times (a|per|each) day|TID)\b/i.test(s)) return { perDay: 3 };
-  if (/\b(twice (a|per|each) day|twice daily|two times (a|per|each) day|BID)\b/i.test(s)) return { perDay: 2 };
-  if (/\b(in the evening|every evening|QPM)\b/i.test(s)) return { perDay: 1, when: 'evening' };
-  if (/\b(in the morning|every morning|QAM)\b/i.test(s)) return { perDay: 1, when: 'morning' };
-  if (/\b(once daily|once a day|daily|every day|each day|QD)\b/i.test(s)) return { perDay: 1 };
-  return null;
+  const every = s.match(/every\s+(\d+)\s*(?:(?:to|-|–)\s*\d+\s*)?(?:hours?|hrs?)\b|\bq\s?(\d+)(?:\s?-\s?\d+)?\s?(?:h|hrs?)\b/i);
+  if (every) {
+    const h = +(every[1] || every[2]);
+    return h > 24 && h % 24 === 0 ? { perDay: 1, everyDays: h / 24 } : { every: h };
+  }
+  // "three times daily", "2 times a day", "twice a day", BID, TID, QID
+  const n = s.match(/\b(?:(once|twice)|(one|two|three|four|[1-4])\s*(?:times?|x))\s*(?:a|per|each|every|\/)?\s*(?:day|daily)\b/i);
+  const perDay = /\bQID\b/i.test(s) ? 4 : /\bTID\b/i.test(s) ? 3 : /\bBID\b/i.test(s) ? 2 : n ? COUNT[(n[1] || n[2]).toLowerCase()] || +n[2] : 0;
+  // "in the morning and at bedtime" is twice a day, not once
+  const both = s.match(/\b(?:morning|breakfast)\b[^.;]*\band\b[^.;]*\b(evening|bedtime|night|dinner|supper)\b/i);
+  if (perDay > 1 || both) {
+    const f = { perDay: perDay || 2 };
+    if (f.perDay === 2 && both) f.when = /bedtime|night/i.test(both[1]) ? 'bedtime' : 'evening';
+    return f;
+  }
+  const d = s.match(/\bevery other day\b|\bon alternate days\b|\bQOD\b|\bevery\s+(\d|two|three)\s+days\b|\b(once a week|once weekly|weekly|every week)\b/i);
+  const everyDays = !d ? 0 : d[2] ? 7 : d[1] ? COUNT[d[1].toLowerCase()] || +d[1] : 2;
+  const when = BEDTIME.test(s) ? 'bedtime' : EVENING.test(s) ? 'evening' : MORNING.test(s) ? 'morning' : '';
+  if (!perDay && !when && !everyDays && !/\b(daily|every day|each day|QD)\b/i.test(s)) return null;
+  const f = { perDay: 1 };
+  if (when) f.when = when;
+  if (everyDays > 1) f.everyDays = everyDays;
+  return f;
 }
 
 // ---------- follow-ups, warnings, restrictions ----------

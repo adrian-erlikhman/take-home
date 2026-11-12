@@ -1,5 +1,5 @@
 import { parseInstructions } from './parse.js';
-import { daySchedule, clock, doseText, checksFor, grade, icsFor, planText, PREFS } from './plan.js';
+import { daySchedule, clock, doseText, checksFor, grade, icsFor, planText, PREFS, timesFor, everyLabel, notDaily } from './plan.js';
 import { glossaryFor } from './glossary.js';
 import { MODELS, readWithClaude, translate, askPapers, transcribePhoto } from './ai.js';
 import { SAMPLES } from './samples.js';
@@ -36,6 +36,7 @@ function render() {
   const before = grade(state.text), after = grade(planText(p, sched));
   const day0 = p.info.discharged;
   const prn = p.meds.filter((m) => m.prn && m.status !== 'stop');
+  const other = notDaily(p.meds);
   const stopped = p.meds.filter((m) => m.status === 'stop');
   const dont = p.rules.filter((r) => r.dont), dos = p.rules.filter((r) => !r.dont);
 
@@ -63,6 +64,7 @@ function render() {
           ${sched.map((s) => `<div class="slot"><div class="t">${clock(s.hour)}</div><div>${s.meds.map((m) => `
             <label class="med"><input type="checkbox"><span><span class="name">${esc(m.name)}</span>${statusTag(m)}
             <span class="how"> · ${esc(doseText(m))}</span>${src(m.line)}<br><span class="how">${esc(medHow(m))}</span></span></label>`).join('')}</div></div>`).join('') || '<p class="sub">No daily medicines found.</p>'}
+          ${other.length ? `<div class="prn"><h4>Not every day</h4><ul>${other.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}, ${everyLabel(m.freq.everyDays)} at ${timesFor(m, state.prefs).map(clock).join(' and ')}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${prn.length ? `<div class="prn"><h4>Only if you need it</h4><ul>${prn.map((m) => `<li><b>${esc(m.name)}</b>${statusTag(m)} · ${esc(doseText(m))}${m.reason ? ` for ${esc(m.reason)}` : ''}${m.freq?.every ? `, no more often than every ${m.freq.every} hours` : ''}${m.max ? `, at most ${m.max.n} ${m.max.unit}s in 24 hours` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
           ${stopped.length ? `<div class="stopped"><h4>Stop taking</h4><ul>${stopped.map((m) => `<li><b>${esc(m.name)}</b>${m.brand ? ` (${esc(m.brand)})` : ''}${src(m.line)}</li>`).join('')}</ul></div>` : ''}
         </article>
